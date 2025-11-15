@@ -1,0 +1,141 @@
+from http import HTTPStatus
+
+
+class TestFilmEndpoints:
+    """Тесты для эндпоинтов фильмов"""
+
+    def test_get_film_details_success(self, api_client, film_data):
+        """Тест получения деталей фильма по ID"""
+        response = api_client.get(f"/films/{film_data['matrix']}")
+
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+
+        assert data["id"] == film_data["matrix"]
+        assert data["title"] == "The Matrix"
+        assert data["imdb_rating"] == 8.7
+        assert "Action" in data["genre"]
+        assert "description" in data
+
+    def test_get_film_details_not_found(self, api_client):
+        """Тест получения несуществующего фильма"""
+        response = api_client.get("/films/non-existent-id")
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        data = response.json()
+        assert data["detail"] == "film not found"
+
+    def test_get_films_list_default(self, api_client):
+        """Тест получения списка фильмов с параметрами по умолчанию"""
+        response = api_client.get("/films/")
+
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+
+        assert isinstance(data, list)
+        assert len(data) > 0
+
+        # Проверяем структуру ответа
+        film = data[0]
+        assert "id" in film
+        assert "title" in film
+        assert "imdb_rating" in film
+
+    def test_get_films_list_with_genre_filter(self, api_client):
+        """Тест фильтрации по жанру"""
+        response = api_client.get("/films/", params={"genre": "Action"})
+
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+
+        # Все фильмы должны содержать жанр Action
+        for film in data:
+            assert "Action" in film.get("genre", [])
+
+    def test_get_films_list_with_sorting(self, api_client):
+        """Тест сортировки по рейтингу"""
+        response = api_client.get("/films/", params={"sort": "-imdb_rating"})
+
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+
+        # Проверяем что фильмы отсортированы по убыванию рейтинга
+        ratings = [film["imdb_rating"] for film in data]
+        assert ratings == sorted(ratings, reverse=True)
+
+    def test_get_films_list_pagination(self, api_client):
+        """Тест пагинации"""
+        response_page1 = api_client.get("/films/", params={"page": 1, "size": 2})
+        response_page2 = api_client.get("/films/", params={"page": 2, "size": 2})
+
+        assert response_page1.status_code == HTTPStatus.OK
+        assert response_page2.status_code == HTTPStatus.OK
+
+        page1_data = response_page1.json()
+        page2_data = response_page2.json()
+
+        assert len(page1_data) == 2
+        assert len(page2_data) == 2
+
+        # Фильмы на разных страницах не должны пересекаться
+        page1_ids = {film["id"] for film in page1_data}
+        page2_ids = {film["id"] for film in page2_data}
+        assert page1_ids.isdisjoint(page2_ids)
+
+    def test_films_search_success(self, api_client):
+        """Тест поиска фильмов"""
+        response = api_client.get("/films/search/", params={"query": "matrix"})
+
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+
+        assert len(data) > 0
+        # Проверяем что найденные фильмы содержат "matrix" в названии
+        for film in data:
+            assert "matrix" in film["title"].lower()
+
+    def test_films_search_empty_query(self, api_client):
+        """Тест поиска с пустым запросом"""
+        response = api_client.get("/films/search/", params={"query": ""})
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        data = response.json()
+        assert "detail" in data
+
+    def test_films_search_no_results(self, api_client):
+        """Тест поиска без результатов"""
+        response = api_client.get("/films/search/", params={"query": "nonexistentmovie"})
+
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+        assert data == []
+
+    def test_films_search_with_pagination(self, api_client):
+        """Тест поиска с пагинацией"""
+        response = api_client.get(
+            "/films/search/",
+            params={"query": "the", "page": 1, "size": 1}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+        assert len(data) == 1
+
+
+class TestFilmValidation:
+    """Тесты валидации параметров"""
+
+    def test_invalid_page_number(self, api_client):
+        """Тест невалидного номера страницы"""
+        response = api_client.get("/films/", params={"page": 0})
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def test_invalid_page_size(self, api_client):
+        """Тест невалидного размера страницы"""
+        response = api_client.get("/films/", params={"size": 0})
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def test_page_size_exceeds_maximum(self, api_client):
+        """Тест превышения максимального размера страницы"""
+        response = api_client.get("/films/", params={"size": 101})
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY

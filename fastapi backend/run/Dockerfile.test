@@ -1,0 +1,20 @@
+# Dockerfile.test
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Копируем зависимости
+COPY requirements.txt .
+COPY requirements/ requirements/
+
+# Устанавливаем зависимости для тестов
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install pytest requests elasticsearch redis pytest-asyncio
+
+# Копируем исходный код
+COPY . .
+
+# Создаем директорию для отчетов
+RUN mkdir -p test-reports
+
+CMD ["pytest", "tests/functional/", "-v"]

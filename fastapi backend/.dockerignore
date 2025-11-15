@@ -1,0 +1,7 @@
+../.idea/
+.venv/
+run/
+tasks/
+.gitignore
+README.md
+.pre-commit-config.yaml

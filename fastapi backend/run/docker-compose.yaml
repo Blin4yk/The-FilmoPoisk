@@ -1,0 +1,82 @@
+services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redisdata:/data
+    stdin_open: true
+
+  elasticsearch-with-dump:
+    image: elasticsearch:8.13.0
+    container_name: elasticsearch-with-dump
+    environment:
+      - node.name=elasticsearch-with-dump
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms200m -Xmx200m
+    volumes:
+      - es-data01:/usr/share/elasticsearch-with-dump/data
+    ports:
+      - "9200:9200"
+    stdin_open: true
+
+  kibana-with-dump:
+    image: kibana:8.13.0
+    container_name: kibana-with-dump
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch-with-dump:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch-with-dump
+
+  fastapi:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../src:/app/src
+    working_dir: /app/src
+    command: fastapi dev main.py --host 0.0.0.0 --port 8000
+    depends_on:
+      - kibana-with-dump
+      - elasticsearch-with-dump
+      - redis
+    environment:
+      - ENVIRONMENT=development
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+
+  # Добавляем сервис тестов
+  tests:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.test
+    environment:
+      - API_URL=http://fastapi:8000
+      - ELASTICSEARCH_URL=http://elasticsearch-with-dump:9200
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      fastapi:
+        condition: service_started
+    volumes:
+      - ./test-reports:/app/test-reports
+    command: >
+      sh -c "python tests/scripts/wait_for_services.py 
+             && python tests/scripts/load_test_data.py 
+             && pytest tests/functional/ -v --junitxml=test-reports/results.xml"
+
+volumes:
+  redis:
+  es-data01:
+    driver: local
