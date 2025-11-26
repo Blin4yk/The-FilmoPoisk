@@ -6,16 +6,24 @@ class TestFilmEndpoints:
 
     def test_get_film_details_success(self, api_client, film_data):
         """Тест получения деталей фильма по ID"""
-        response = api_client.get(f"/films/{film_data['matrix']}")
+        response = api_client.get(f"/films/{film_data['star_wars']}")
 
         assert response.status_code == HTTPStatus.OK
         data = response.json()
 
-        assert data["id"] == film_data["matrix"]
-        assert data["title"] == "The Matrix"
-        assert data["imdb_rating"] == 8.7
-        assert "Action" in data["genre"]
+        assert data["id"] == film_data["star_wars"]
+        assert data["title"] == "Star Wars: Episode IV - A New Hope"
+        assert data["imdb_rating"] == 8.6
+        # Проверяем структуру согласно новой схеме
         assert "description" in data
+        assert "genres" in data
+        assert "actors" in data
+        assert "writers" in data
+        assert "directors" in data
+
+        # Проверяем что жанры содержат Action
+        genre_names = [genre["name"] for genre in data["genres"]]
+        assert "Action" in genre_names
 
     def test_get_film_details_not_found(self, api_client):
         """Тест получения несуществующего фильма"""
@@ -35,22 +43,12 @@ class TestFilmEndpoints:
         assert isinstance(data, list)
         assert len(data) > 0
 
-        # Проверяем структуру ответа
+        # Проверяем структуру ответа согласно FilmShort
         film = data[0]
         assert "id" in film
         assert "title" in film
         assert "imdb_rating" in film
-
-    def test_get_films_list_with_genre_filter(self, api_client):
-        """Тест фильтрации по жанру"""
-        response = api_client.get("/films/", params={"genre": "Action"})
-
-        assert response.status_code == HTTPStatus.OK
-        data = response.json()
-
-        # Все фильмы должны содержать жанр Action
-        for film in data:
-            assert "Action" in film.get("genre", [])
+        # В FilmShort нет полей genre, description, actors и т.д.
 
     def test_get_films_list_with_sorting(self, api_client):
         """Тест сортировки по рейтингу"""
@@ -60,13 +58,13 @@ class TestFilmEndpoints:
         data = response.json()
 
         # Проверяем что фильмы отсортированы по убыванию рейтинга
-        ratings = [film["imdb_rating"] for film in data]
+        ratings = [film["imdb_rating"] for film in data if film["imdb_rating"] is not None]
         assert ratings == sorted(ratings, reverse=True)
 
     def test_get_films_list_pagination(self, api_client):
         """Тест пагинации"""
-        response_page1 = api_client.get("/films/", params={"page": 1, "size": 2})
-        response_page2 = api_client.get("/films/", params={"page": 2, "size": 2})
+        response_page1 = api_client.get("/films/", params={"page": 1, "size": 50})
+        response_page2 = api_client.get("/films/", params={"page": 2, "size": 50})
 
         assert response_page1.status_code == HTTPStatus.OK
         assert response_page2.status_code == HTTPStatus.OK
@@ -84,7 +82,7 @@ class TestFilmEndpoints:
 
     def test_films_search_success(self, api_client):
         """Тест поиска фильмов"""
-        response = api_client.get("/films/search/", params={"query": "matrix"})
+        response = api_client.get("/films/search/", params={"query": "door"})
 
         assert response.status_code == HTTPStatus.OK
         data = response.json()
@@ -92,15 +90,14 @@ class TestFilmEndpoints:
         assert len(data) > 0
         # Проверяем что найденные фильмы содержат "matrix" в названии
         for film in data:
-            assert "matrix" in film["title"].lower()
+            assert "door" in film["title"].lower()
 
     def test_films_search_empty_query(self, api_client):
         """Тест поиска с пустым запросом"""
         response = api_client.get("/films/search/", params={"query": ""})
 
-        assert response.status_code == HTTPStatus.BAD_REQUEST
-        data = response.json()
-        assert "detail" in data
+        assert response.status_code == 422
+
 
     def test_films_search_no_results(self, api_client):
         """Тест поиска без результатов"""

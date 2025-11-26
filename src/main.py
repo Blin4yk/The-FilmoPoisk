@@ -7,9 +7,9 @@ from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 from redis.asyncio import Redis
 
-from backend.src.core.config import settings
-from backend.src.api.v1 import films
-from backend.src.db import elastic, redis
+from core.config import settings
+from api.v1 import films
+from db import elastic, redis
 
 
 @contextlib.asynccontextmanager
@@ -37,5 +37,4 @@ app = FastAPI(
 app.include_router(films.router, prefix='/api/v1/films', tags=['films'])
 
 if __name__ == '__main__':
-    fastapi.development.launch(app)
     uvicorn.run(app, host='0.0.0.0', port=8000)

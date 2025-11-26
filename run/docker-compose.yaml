@@ -17,7 +17,7 @@ services:
       - xpack.security.enabled=false
       - ES_JAVA_OPTS=-Xms200m -Xmx200m
     volumes:
-      - es-data01:/usr/share/elasticsearch-with-dump/data
+      - es-data01:/usr/share/elasticsearch/data
     ports:
       - "9200:9200"
     stdin_open: true
@@ -34,13 +34,13 @@ services:
 
   fastapi:
     build:
-      context: ../..
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ./Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - ../src:/app/src
-    working_dir: /app/src
+      - ../src:/app
+    working_dir: /app
     command: fastapi dev main.py --host 0.0.0.0 --port 8000
     depends_on:
       - kibana-with-dump
@@ -48,35 +48,37 @@ services:
       - redis
     environment:
       - ENVIRONMENT=development
+      - PYTHONPATH=/app
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
-      interval: 10s
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/openapi" ]
+      interval: 30s
       timeout: 10s
-      retries: 10
-      start_period: 30s
+      retries: 3
+      start_period: 40s
 
-
-  # Добавляем сервис тестов
   tests:
     build:
-      context: ../..
-      dockerfile: Dockerfile.test
+      context: ..
+      dockerfile: ./Dockerfile.test
     environment:
-      - API_URL=http://fastapi:8000
+      - API_URL=http://fastapi:8000/api/openapi
       - ELASTICSEARCH_URL=http://elasticsearch-with-dump:9200
       - REDIS_URL=redis://redis:6379
     depends_on:
       fastapi:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./test-reports:/app/test-reports
-    command: >
-      sh -c "python tests/scripts/wait_for_services.py 
-             && python tests/scripts/load_test_data.py 
-             && pytest tests/functional/ -v --junitxml=test-reports/results.xml"
+    command:
+      - sh
+      - -c
+      - |
+        echo "Waiting for services..."
+        python tests/scripts/wait_for_services.py
+        python tests/scripts/load_test_data.py
+        pytest tests/functional/ -v --junitxml=test-reports/results.xml
 
 volumes:
-  redis:
   es-data01:
     driver: local
