@@ -9,7 +9,7 @@ class TestFilmPerformance:
     def test_response_time_film_details(self, api_client, film_data):
         """Тест времени ответа для деталей фильма"""
         start_time = time.time()
-        response = api_client.get(f"/films/{film_data['matrix']}")
+        response = api_client.get(f"/films/{film_data['star_wars']}")
         end_time = time.time()
 
         assert response.status_code == 200

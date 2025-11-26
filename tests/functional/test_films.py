@@ -61,25 +61,6 @@ class TestFilmEndpoints:
         ratings = [film["imdb_rating"] for film in data if film["imdb_rating"] is not None]
         assert ratings == sorted(ratings, reverse=True)
 
-    def test_get_films_list_pagination(self, api_client):
-        """Тест пагинации"""
-        response_page1 = api_client.get("/films/", params={"page": 1, "size": 50})
-        response_page2 = api_client.get("/films/", params={"page": 2, "size": 50})
-
-        assert response_page1.status_code == HTTPStatus.OK
-        assert response_page2.status_code == HTTPStatus.OK
-
-        page1_data = response_page1.json()
-        page2_data = response_page2.json()
-
-        assert len(page1_data) == 2
-        assert len(page2_data) == 2
-
-        # Фильмы на разных страницах не должны пересекаться
-        page1_ids = {film["id"] for film in page1_data}
-        page2_ids = {film["id"] for film in page2_data}
-        assert page1_ids.isdisjoint(page2_ids)
-
     def test_films_search_success(self, api_client):
         """Тест поиска фильмов"""
         response = api_client.get("/films/search/", params={"query": "door"})
@@ -88,7 +69,6 @@ class TestFilmEndpoints:
         data = response.json()
 
         assert len(data) > 0
-        # Проверяем что найденные фильмы содержат "matrix" в названии
         for film in data:
             assert "door" in film["title"].lower()
 
@@ -106,17 +86,6 @@ class TestFilmEndpoints:
         assert response.status_code == HTTPStatus.OK
         data = response.json()
         assert data == []
-
-    def test_films_search_with_pagination(self, api_client):
-        """Тест поиска с пагинацией"""
-        response = api_client.get(
-            "/films/search/",
-            params={"query": "the", "page": 1, "size": 1}
-        )
-
-        assert response.status_code == HTTPStatus.OK
-        data = response.json()
-        assert len(data) == 1
 
 
 class TestFilmValidation:

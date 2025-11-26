@@ -62,7 +62,7 @@ services:
       context: ..
       dockerfile: ./Dockerfile.test
     environment:
-      - API_URL=http://fastapi:8000/api/openapi
+      - API_URL=http://fastapi:8000/api/v1
       - ELASTICSEARCH_URL=http://elasticsearch-with-dump:9200
       - REDIS_URL=redis://redis:6379
     depends_on:
