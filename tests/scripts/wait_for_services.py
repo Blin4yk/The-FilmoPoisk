@@ -4,12 +4,14 @@ import time
 
 import requests
 
+from tests.logger import LOGGING
+
 
 def wait_for_elasticsearch():
     es_url = os.getenv('ELASTICSEARCH_URL', 'http://elasticsearch-with-dump:9200')
     health_url = f"{es_url}/_cluster/health"
 
-    print(f"Waiting for Elasticsearch at {health_url}...")
+    LOGGING(f"Ожидание Elasticsearch {health_url}...")
 
     for i in range(30):
         try:
@@ -17,14 +19,14 @@ def wait_for_elasticsearch():
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') in ['green', 'yellow']:
-                    print("Elasticsearch is ready!")
+                    LOGGING("Elasticsearch is ready!")
                     return True
         except requests.exceptions.RequestException as e:
-            print(f"Attempt {i + 1}/30: Elasticsearch not ready yet - {e}")
+            LOGGING(f"Попытка {i + 1}/30: Elasticsearch не готов - {e}")
 
         time.sleep(5)
 
-    print("Timeout waiting for Elasticsearch")
+    LOGGING("Таймаут ожидания Elasticsearch")
     return False
 
 
@@ -32,20 +34,20 @@ def wait_for_redis():
     import redis
     redis_url = os.getenv('REDIS_URL', 'redis://redis:6379')
 
-    print(f"Waiting for Redis at {redis_url}...")
+    LOGGING(f"Ожидание Redis {redis_url}...")
 
     for i in range(30):
         try:
             r = redis.from_url(redis_url)
             r.ping()
-            print("Redis is ready!")
+            LOGGING("Redis is ready!")
             return True
         except Exception as e:
-            print(f"Attempt {i + 1}/30: Redis not ready yet - {e}")
+            LOGGING(f"Попытка {i + 1}/30: Redis не готов - {e}")
 
         time.sleep(5)
 
-    print("Timeout waiting for Redis")
+    LOGGING("Таймаут ожидания Redis")
     return False
 
 
@@ -57,21 +59,21 @@ def wait_for_app(max_retries=30, delay=5):
         try:
             response = requests.get(app_url, timeout=5)
             if response.status_code == 200:
-                print("App готов!")
+                LOGGING("App готов!")
                 return True
             else:
-                print(f"Попытка {i + 1}: App вернул статус {response.status_code}")
+                LOGGING(f"Попытка {i + 1}: App вернул статус {response.status_code}")
         except requests.exceptions.RequestException as e:
-            print(f"Попытка {i + 1}/{max_retries}: App не готов - {e}")
+            LOGGING(f"Попытка {i + 1}/{max_retries}: App не готов - {e}")
 
         time.sleep(delay)
 
-    print("Timeout waiting for App")
+    LOGGING("Таймаут ожидания App")
     return False
 
 
 if __name__ == "__main__":
-    print("Запуск health check...")
+    LOGGING("Запуск health check...")
 
     # Ждем все сервисы
     es_ready = wait_for_elasticsearch()
@@ -79,7 +81,7 @@ if __name__ == "__main__":
     app_ready = wait_for_app()
 
     if es_ready and redis_ready and app_ready:
-        print("Все сервисы подняты. Запускаем тесты...")
+        LOGGING("Все сервисы подняты. Запускаем тесты...")
     else:
-        print("Некоторые сервисы не запустились")
+        LOGGING("Некоторые сервисы не запустились")
         sys.exit(1)

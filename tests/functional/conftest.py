@@ -1,10 +1,10 @@
-import logging
-
 import pytest
 import requests
 import time
 import os
 from typing import Generator
+
+from tests.logger import LOGGING
 
 # В зависимости от сборки, если локально, то localhost:, иначе fastapi:
 API_BASE_URL = os.getenv('API_URL', 'http://localhost:8000/api/v1')
@@ -35,12 +35,12 @@ def api_client() -> Generator:
         try:
             response = client.get("/films/")
             if response.status_code in [200, 404]:
-                print(f"API доступно после {i + 1} попытки")
+                LOGGING(f"API доступно после {i + 1} попытки")
                 break
             else:
-                print(f"Попытка {i + 1}: статус {response.status_code}")
+                LOGGING(f"Попытка {i + 1}: статус {response.status_code}")
         except requests.exceptions.RequestException as e:
-            print(f"Попытка {i + 1}/{max_retries}: {e}")
+            LOGGING(f"Попытка {i + 1}/{max_retries}: {e}")
 
         time.sleep(2)
     else:

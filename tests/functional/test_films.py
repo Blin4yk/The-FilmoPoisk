@@ -48,7 +48,6 @@ class TestFilmEndpoints:
         assert "id" in film
         assert "title" in film
         assert "imdb_rating" in film
-        # В FilmShort нет полей genre, description, actors и т.д.
 
     def test_get_films_list_with_sorting(self, api_client):
         """Тест сортировки по рейтингу"""
