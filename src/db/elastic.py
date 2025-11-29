@@ -45,8 +45,6 @@ async def create_elastic_client(hosts: list[str]) -> AbstractSearchClient:
     es = AsyncElasticsearch(hosts=hosts)
     return ElasticsearchClient(es)
 
-
-# Для совместимости со старым кодом (можно удалить после рефакторинга)
 es: AsyncElasticsearch | None = None
 
 

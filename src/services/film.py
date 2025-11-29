@@ -132,14 +132,14 @@ class FilmService:
                         "actors_names",
                         "writers_names"
                     ],
-                    "fuzziness": "auto",  # Автоматический подбор расстояния Левенштейна
+                    "fuzziness": "auto",
                     "operator": "or"  # Хотя бы одно слово должно совпадать
                 }
             },
             "from": (page - 1) * size,
             "size": size,
             "_source": ["id", "title", "imdb_rating"],
-            "highlight": {  # Подсветка найденных фрагментов (опционально)
+            "highlight": {  # Подсветка найденных фрагментов
                 "fields": {
                     "title": {},
                     "description": {}

@@ -2,7 +2,7 @@ import logging
 import os
 from elasticsearch import Elasticsearch
 
-from tests.logger import LOGGING
+
 
 
 def load_test_data():
@@ -89,9 +89,9 @@ def load_test_data():
     try:
         if es.indices.exists(index=index_name):
             es.indices.delete(index=index_name)
-            LOGGING(f"Индекс {index_name} удален")
+            logging.warning(f"Индекс {index_name} удален")
     except Exception as e:
-        LOGGING(f"Ошибка при удалении индекса: {e}")
+        logging.error(f"Ошибка при удалении индекса: {e}")
 
     # Создаем индекс с mapping соответствующий вашим схемам
     mapping = {
@@ -217,22 +217,22 @@ def load_test_data():
 
     try:
         es.indices.create(index=index_name, body=mapping)
-        LOGGING(f"Индекс {index_name} создан")
+        logging.info(f"Индекс {index_name} создан")
     except Exception as e:
-        LOGGING(f"Ошибка при создании индекса: {e}")
+        logging.error(f"Ошибка при создании индекса: {e}")
 
     # Индексируем фильмы
     for film in test_films:
         try:
             es.index(index=index_name, id=film["id"], body=film)
-            LOGGING(f"Фильм {film['title']} загружен")
+            logging.info(f"Фильм {film['title']} загружен")
         except Exception as e:
-            LOGGING(f"Ошибка при загрузке фильма {film['title']}: {e}")
+            logging.error(f"Ошибка при загрузке фильма {film['title']}: {e}")
 
     # Ждем обновления индекса
     es.indices.refresh(index=index_name)
 
-    LOGGING(f"Загружено {len(test_films)} тестовых фильмов в Elasticsearch")
+    logging.info(f"Загружено {len(test_films)} тестовых фильмов в Elasticsearch")
 
 
 if __name__ == "__main__":
