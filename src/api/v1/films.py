@@ -2,7 +2,6 @@ from http import HTTPStatus
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from api.v1.dependencies.dependency import FilmListParams, FilmSearchParams
 from api.v1.scheme.film_scheme import FilmDetail, FilmShort
 from services.film import FilmService, get_film_service
 
@@ -10,22 +9,29 @@ router = APIRouter()
 
 # Внедряем FilmService с помощью Depends(get_film_service)
 @router.get('/{film_id}', response_model=FilmDetail)
-async def film_details(
-        film_id: str,
-        film_service: FilmService = Depends(get_film_service)
-) -> FilmDetail:
+async def film_details(film_id: str, film_service: FilmService = Depends(get_film_service)) -> FilmDetail:
     """
     Get фильма по id
+    Args:
+        film_id:
+        film_service:
+
+    Returns:
+
     """
     film = await film_service.get_by_id(film_id)
     if not film:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='film not found')
+
     return film
 
 
 @router.get("/", response_model=list[FilmShort])
 async def films_list(
-        params: FilmListParams = Depends(),  # Используем класс-зависимость
+        sort: str = Query("-imdb_rating", description="Sort by field (- for DESC)"),
+        genre: str | None = Query(None, description="Filter by genre ID"),
+        page: int = Query(1, ge=1, description="Page number"),
+        size: int = Query(50, ge=1, le=100, description="Page size"),
         film_service: FilmService = Depends(get_film_service)
 ) -> list[FilmShort]:
     """
@@ -37,21 +43,24 @@ async def films_list(
     - /api/v1/films?page=2&size=20
     """
     films = await film_service.get_films(
-        sort=params.sort,
-        genre=params.genre,
-        page=params.page,
-        size=params.size
+        sort=sort,
+        genre=genre,
+        page=page,
+        size=size
     )
 
     if not films:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='films not found')
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='film not found')
 
     return films
 
 
 @router.get("/search/", response_model=list[FilmShort])
 async def films_search(
-        params: FilmSearchParams = Depends(),  # Используем класс-зависимость
+        query: str = Query(..., min_length=1, description="Search query"),
+        sort: str = Query("-imdb_rating", description="Sort by field (- for DESC)"),
+        page: int = Query(1, ge=1, description="Page number"),
+        size: int = Query(50, ge=1, le=100, description="Page size"),
         film_service: FilmService = Depends(get_film_service)
 ) -> list[FilmShort]:
     """
@@ -61,17 +70,12 @@ async def films_search(
     - /api/v1/films/search/?query=star wars&sort=-imdb_rating
     - /api/v1/films/search/?query=action
     """
-    if not params.query.strip():
+    if not query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-    films = await film_service.search_films(
-        query=params.query,
-        sort=params.sort,
-        page=params.page,
-        size=params.size
+    return await film_service.search_films(
+        query=query,
+        sort=sort,
+        page=page,
+        size=size
     )
-
-    if not films:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='films not found')
-
-    return films
