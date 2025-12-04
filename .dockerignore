@@ -5,3 +5,4 @@ tasks/
 .gitignore
 README.md
 .pre-commit-config.yaml
+main_local.py

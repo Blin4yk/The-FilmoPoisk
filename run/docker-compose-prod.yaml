@@ -1,0 +1,73 @@
+services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "${REDIS_EXTERNAL_PORT:-}:${REDIS_INTERNAL_PORT:-6379}"
+    volumes:
+      - ./redisdata:/data
+    stdin_open: true
+
+  elasticsearch-with-dump:
+    image: elasticsearch:8.13.0
+    container_name: elasticsearch-with-dump
+    environment:
+      - node.name=elasticsearch-with-dump
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms200m -Xmx200m
+    volumes:
+      - es-data01:/usr/share/elasticsearch/data
+    ports:
+      - "${ELASTICSEARCH_EXTERNAL_PORT:-}:${ELASTICSEARCH_INTERNAL_PORT:-9200}"
+    stdin_open: true
+
+  fastapi:
+    build:
+      context: ..
+      dockerfile: ./Dockerfile
+    ports:
+      - "${FASTAPI_PORT:-8000}:8000"
+    volumes:
+      - ../src:/app
+    working_dir: /app
+    command: gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8000
+    depends_on:
+      - elasticsearch-with-dump
+      - redis
+    environment:
+      - ENVIRONMENT=development
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/openapi" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  tests:
+    build:
+      context: ..
+      dockerfile: ./Dockerfile.test
+    environment:
+      - API_URL=http://fastapi:8000/api/v1
+      - ELASTICSEARCH_URL=http://elasticsearch-with-dump:9200
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      fastapi:
+        condition: service_healthy
+    volumes:
+      - ./test-reports:/app/test-reports
+    command:
+      - sh
+      - -c
+      - |
+        echo "Waiting for services..."
+        python tests/scripts/wait_for_services.py
+        python tests/scripts/load_test_data.py
+        pytest tests/functional/ -v --junitxml=test-reports/results.xml
+
+volumes:
+  es-data01:
+    driver: local
