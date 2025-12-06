@@ -1,30 +1,49 @@
-from functools import lru_cache
 
-from elasticsearch import AsyncElasticsearch, NotFoundError
+import json
+from db.redis import get_cache
+from db.elastic import get_storage
 from fastapi import Depends
-from redis.asyncio import Redis
+
 
 from api.v1.scheme.film_scheme import FilmDetail, FilmShort, Person, Genre
-from core.logger import LOGGING
-from db.elastic import get_elastic
-from db.redis import get_redis
+from db.interface.interfaces import AbstractCache, AbstractDataStorage
 
 FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5  # 5 минут
+FILMS_LIST_CACHE_EXPIRE_IN_SECONDS = 60  # 1 минута
 
 
 class FilmService:
-    def __init__(self, redis: Redis, elastic: AsyncElasticsearch):
-        self.redis = redis
-        self.elastic = elastic
+    """Сервис для работы с фильмами. Зависит от абстракций (принцип D из SOLID)"""
+    
+    def __init__(self, cache: AbstractCache, storage: AbstractDataStorage):
+        """
+        Args:
+            cache: Абстракция кэша (например, RedisCache)
+            storage: Абстракция хранилища данных (например, ElasticDataStorage)
+        """
+        self.cache = cache
+        self.storage = storage
+        self.index = "movies"  # Индекс фильмов в Elasticsearch
 
-    # get_by_id возвращает объект фильма. Он опционален, так как фильм может отсутствовать в базе
     async def get_by_id(self, film_id: str) -> FilmDetail | None:
-        film = await self._film_from_cache(film_id)
-        if not film:
-            film = await self._get_film_from_elastic(film_id)
-            if not film:
-                return None
-            await self._put_film_to_cache(film)
+        """Получить фильм по ID с кэшированием"""
+        cache_key = f"film:{film_id}"
+        cached_film = await self.cache.get(cache_key)
+        if cached_film:
+            return FilmDetail.parse_raw(cached_film)
+
+        film_data = await self.storage.get_by_id(index=self.index, id=film_id)
+        if not film_data:
+            return None
+
+        film = self._convert_to_film_detail(film_data)
+
+        await self.cache.set(
+            cache_key,
+            film.json(),
+            expire=FILM_CACHE_EXPIRE_IN_SECONDS
+        )
+
         return film
 
     async def get_films(
@@ -34,74 +53,61 @@ class FilmService:
             page: int = 1,
             size: int = 50
     ) -> list[FilmShort]:
-        """
-        Получение списка фильмов с сортировкой по рейтингу и фильтром жанров
-        Args:
-            sort:
-            genre:
-            page:
-            size:
+        """Получение списка фильмов с сортировкой по рейтингу и фильтром жанров"""
+        cache_key = f"films:list:{sort}:{genre}:{page}:{size}"
 
-        Returns: list[FilmShort]
+        cached_films = await self.cache.get(cache_key)
+        if cached_films:
+            films_data = json.loads(cached_films)
+            return [FilmShort(**film_data) for film_data in films_data]
 
-        """
-        # Строим базовый запрос
-        search_body = {
-            "query": {"match_all": {}},
-            "from": (page - 1) * size,
-            "size": size,
-            "_source": ["id", "title", "imdb_rating"]
-        }
-
-        # Фильтрация по жанру
+        query = {"match_all": {}}
         if genre:
-            search_body["query"] = {
+            query = {
                 "nested": {
                     "path": "genres",
                     "query": {
                         "bool": {
-                            "must": [
-                                {
-                                    "terms": {
-                                        "genres": genre
-                                    }
-                                }
-                            ]
+                            "must": [{"terms": {"genres": [genre]}}]
                         }
                     }
                 }
             }
 
-        # Сортировка
+        # Формируем параметры сортировки
         sort_field = sort.lstrip('-')
         sort_order = "desc" if sort.startswith('-') else "asc"
-
+        
         if sort_field == "imdb_rating":
-            search_body["sort"] = [{"imdb_rating": {"order": sort_order, "missing": "_last"}}]
+            sort_param = [{"imdb_rating": {"order": sort_order, "missing": "_last"}}]
         elif sort_field == "title":
-            search_body["sort"] = [{"title.raw": {"order": sort_order}}]
+            sort_param = [{"title.raw": {"order": sort_order}}]
         else:
-            # По умолчанию сортируем по рейтингу по убыванию
-            search_body["sort"] = [{"imdb_rating": {"order": "desc", "missing": "_last"}}]
+            sort_param = [{"imdb_rating": {"order": "desc", "missing": "_last"}}]
 
-        try:
-            # Выполняем запрос к Elasticsearch
-            response = await self.elastic.search(index="movies", body=search_body)
+        # Получаем из хранилища
+        films_data = await self.storage.get_list(
+            index=self.index,
+            query=query,
+            sort=sort_param,
+            page=page,
+            size=size,
+            _source=["id", "title", "imdb_rating"]
+        )
 
-            films = []
-            for doc in response["hits"]["hits"]:
-                film_data = doc["_source"]
-                films.append(FilmShort(
-                    id=film_data["id"],
-                    title=film_data["title"],
-                    imdb_rating=film_data.get("imdb_rating")
-                ))
+        # Конвертируем в модели
+        films = [self._convert_to_film_short(film_data) for film_data in films_data]
 
-            return films
+        # Сохраняем в кэш
+        if films:
+            films_json = json.dumps([film.dict() for film in films])
+            await self.cache.set(
+                cache_key,
+                films_json,
+                expire=FILMS_LIST_CACHE_EXPIRE_IN_SECONDS
+            )
 
-        except Exception as e:
-            LOGGING.error(f"Error searching films in Elasticsearch: {e}")
-            return []
+        return films
 
     async def search_films(
             self,
@@ -110,138 +116,118 @@ class FilmService:
             page: int = 1,
             size: int = 50
     ) -> list[FilmShort]:
-        """
-        Поиск фильмов по любому слову в названии, описании и других полях
-        Args:
-            query:
-            page:
-            size:
+        """Поиск фильмов по любому слову в названии, описании и других полях"""
+        # Генерируем ключ для кэша
+        cache_key = f"films:search:{query}:{sort}:{page}:{size}"
 
-        Returns:
+        # Пытаемся получить из кэша
+        cached_films = await self.cache.get(cache_key)
+        if cached_films:
+            films_data = json.loads(cached_films)
+            return [FilmShort(**film_data) for film_data in films_data]
 
-        """
-        search_body = {
-            "query": {
-                "multi_match": {
-                    "query": query,
-                    "fields": [
-                        "title^3",  # Название имеет больший вес
-                        "description",
-                        "genres",  # Поиск по жанрам
-                        "directors_names",
-                        "actors_names",
-                        "writers_names"
-                    ],
-                    "fuzziness": "auto",
-                    "operator": "or"  # Хотя бы одно слово должно совпадать
-                }
-            },
-            "from": (page - 1) * size,
-            "size": size,
-            "_source": ["id", "title", "imdb_rating"],
-            "highlight": {  # Подсветка найденных фрагментов
-                "fields": {
-                    "title": {},
-                    "description": {}
-                }
+        # Формируем поисковый query для Elasticsearch
+        search_query = {
+            "multi_match": {
+                "query": query,
+                "fields": [
+                    "title^3",
+                    "description",
+                    "genres",
+                    "directors_names",
+                    "actors_names",
+                    "writers_names"
+                ],
+                "fuzziness": "auto",
+                "operator": "or"
             }
         }
 
-        # Сортировка
+        # Формируем параметры сортировки
         sort_field = sort.lstrip('-')
         sort_order = "desc" if sort.startswith('-') else "asc"
-
+        
         if sort_field == "imdb_rating":
-            search_body["sort"] = [{"imdb_rating": {"order": sort_order, "missing": "_last"}}]
+            sort_param = [{"imdb_rating": {"order": sort_order, "missing": "_last"}}]
         elif sort_field == "title":
-            search_body["sort"] = [{"title.raw": {"order": sort_order}}]
+            sort_param = [{"title.raw": {"order": sort_order}}]
         else:
-            # По умолчанию сортируем по рейтингу по убыванию
-            search_body["sort"] = [{"imdb_rating": {"order": "desc", "missing": "_last"}}]
+            sort_param = [{"imdb_rating": {"order": "desc", "missing": "_last"}}]
 
-        try:
-            response = await self.elastic.search(index="movies", body=search_body)
+        # Получаем из хранилища
+        films_data = await self.storage.get_list(
+            index=self.index,
+            query=search_query,
+            sort=sort_param,
+            page=page,
+            size=size,
+            _source=["id", "title", "imdb_rating"]
+        )
 
-            films = []
-            for doc in response["hits"]["hits"]:
-                film_data = doc["_source"]
-                films.append(FilmShort(
-                    id=film_data["id"],
-                    title=film_data["title"],
-                    imdb_rating=film_data.get("imdb_rating")
-                ))
+        # Конвертируем в модели
+        films = [self._convert_to_film_short(film_data) for film_data in films_data]
 
-            return films
+        # Сохраняем в кэш
+        if films:
+            films_json = json.dumps([film.dict() for film in films])
+            await self.cache.set(
+                cache_key,
+                films_json,
+                expire=FILMS_LIST_CACHE_EXPIRE_IN_SECONDS
+            )
 
-        except Exception as e:
-            LOGGING.error(f"Error searching films in Elasticsearch: {e}")
-            return []
+        return films
 
-    async def _get_film_from_elastic(self, film_id: str) -> FilmDetail | None:
-        try:
-            doc = await self.elastic.get(index='movies', id=film_id)
-        except NotFoundError:
-            return None
-        data = doc['_source']
+    @staticmethod
+    def _convert_to_film_detail(data: dict) -> FilmDetail:
+        """Конвертировать словарь в FilmDetail"""
         return FilmDetail(
             id=data['id'],
             title=data['title'],
             imdb_rating=data.get('imdb_rating'),
             description=data.get('description'),
             genres=[Genre(name=genre) for genre in data.get('genres', [])],
-            actors=[Person(id=person['id'], full_name=person['name']) for person in data.get('actors', [])],
-            writers=[Person(id=person['id'], full_name=person['name']) for person in data.get('writers', [])],
-            directors=[Person(id=person['id'], full_name=person['name']) for person in data.get('directors', [])]
+            actors=[Person(id=person['id'], full_name=person['name'])
+                    for person in data.get('actors', [])],
+            writers=[Person(id=person['id'], full_name=person['name'])
+                     for person in data.get('writers', [])],
+            directors=[Person(id=person['id'], full_name=person['name'])
+                       for person in data.get('directors', [])]
         )
 
-    async def _film_from_cache(self, film_id: str) -> FilmDetail | None:
-        data = await self.redis.get(film_id)
-        if not data:
-            return None
-        film = FilmDetail.parse_raw(data)
-        return film
+    @staticmethod
+    def _convert_to_film_short(data: dict) -> FilmShort:
+        """Конвертировать словарь в FilmShort"""
+        return FilmShort(
+            id=data['id'],
+            title=data['title'],
+            imdb_rating=data.get('imdb_rating')
+        )
 
-    # async def _put_film_to_cache(self, film: FilmDetail):
-    #     await self.redis.set(film.id, film.json(), FILM_CACHE_EXPIRE_IN_SECONDS)
-    #
-    #     # pydantic предоставляет удобное API для создания объекта моделей из json
-    #     film = Film.parse_raw(data)
-    #     return film
-
-    async def _films_list_from_cache(self, cache_key: str) -> list[FilmDetail] | None:
-        data = await self.redis.get(cache_key)
-        if not data:
-            return None
-
-        # Десериализуем список фильмов
-        import json
-        films_data = json.loads(data)
-        return [FilmDetail(**film_data) for film_data in films_data]
-
-    async def _put_film_to_cache(self, film: FilmDetail):
-        # Сохраняем данные о фильме, используя команду set
-        # Выставляем время жизни кеша — 5 минут
-        # https://redis.io/commands/set/
-        # pydantic позволяет сериализовать модель в json
-        await self.redis.set(film.id, film.json(), FILM_CACHE_EXPIRE_IN_SECONDS)
-
-    async def _put_films_list_to_cache(self, cache_key: str, films: list[FilmDetail]):
+    async def health_check(self) -> dict[str, bool]:
+        """Проверка здоровья всех компонентов"""
         try:
-            import json
-            films_data = [film.dict() for film in films]
-            await self.redis.set(
-                cache_key,
-                json.dumps(films_data),
-                FILM_CACHE_EXPIRE_IN_SECONDS
-            )
-        except Exception as e:
-            pass
+            await self.cache.get("health_check")
+            cache_health = True
+        except Exception:
+            cache_health = False
+
+        try:
+            await self.storage.get_by_id(index=self.index, id="health_check")
+            storage_health = True
+        except Exception:
+            storage_health = False
+
+        return {
+            "cache": cache_health,
+            "storage": storage_health,
+            "overall": cache_health and storage_health
+        }
 
 
-
-@lru_cache()
-def get_film_service(
-        redis: Redis = Depends(get_redis),
-        elastic: AsyncElasticsearch = Depends(get_elastic),
+# Зависимости для внедрения
+async def get_film_service(
+        cache: AbstractCache = Depends(get_cache),
+        storage: AbstractDataStorage = Depends(get_storage),
 ) -> FilmService:
-    return FilmService(redis, elastic)
+    return FilmService(cache, storage)
