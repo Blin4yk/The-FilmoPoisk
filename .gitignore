@@ -2,3 +2,5 @@
 .env
 main_local.py
 docker-compose-local.yaml
+.gitignore
+*.xml
