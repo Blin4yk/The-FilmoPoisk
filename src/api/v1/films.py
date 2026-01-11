@@ -7,7 +7,7 @@ from api.v1.dependencies.dependency import PaginationParams
 from api.v1.scheme.film_scheme import FilmDetail, FilmShort
 from services.film import FilmService, get_film_service
 
-router = APIRouter()
+router = APIRouter(prefix='/api/v1/films', tags=['films'])
 
 class FilmListParams(PaginationParams):
     """Параметры для списка фильмов с фильтром по жанру"""
