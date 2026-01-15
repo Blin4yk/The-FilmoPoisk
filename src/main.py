@@ -16,6 +16,7 @@ from db import elastic, postgres, redis
 
 logger = logging.getLogger(__name__)
 
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     redis.redis = Redis(host=settings.redis_host, port=settings.redis_port)
@@ -59,7 +60,14 @@ app = FastAPI(
     docs_url='/api/openapi',
     openapi_url='/api/openapi.json',
     default_response_class=ORJSONResponse,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
     lifespan=lifespan,
+    swagger_ui_parameters={
+        "persistAuthorization": True,
+        "docExpansion": "none",
+    }
 )
 
 app.include_router(auth.router)

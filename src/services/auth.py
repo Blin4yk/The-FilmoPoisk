@@ -129,6 +129,7 @@ class AuthService:
             Кортеж из (новый_access_token, user_id) или None если невалиден
         """
         payload = jwt_service.verify_token(refresh_token, token_type='refresh')
+
         if not payload:
             return None
 

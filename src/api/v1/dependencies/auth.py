@@ -20,6 +20,7 @@ async def get_current_user_optional(
 ) -> User | None:
     """
     Получить текущего пользователя из токена (опционально - возвращает None если не аутентифицирован).
+    Теперь токен ищется сначала в куках, затем в заголовке Authorization.
 
     Args:
         request: Объект запроса FastAPI
@@ -29,11 +30,18 @@ async def get_current_user_optional(
     Returns:
         Объект User или None если не аутентифицирован
     """
-    authorization = request.headers.get('Authorization')
-    if not authorization or not authorization.startswith('Bearer '):
+    # Пробуем получить токен из куков
+    token = request.cookies.get('access_token')
+
+    # Если нет в куках, пробуем получить из заголовка Authorization
+    if not token:
+        authorization = request.headers.get('Authorization')
+        if authorization and authorization.startswith('Bearer '):
+            token = authorization.split(' ')[1]
+
+    if not token:
         return None
 
-    token = authorization.split(' ')[1]
     payload = jwt_service.verify_token(token, token_type='access')
     if not payload:
         return None
@@ -91,6 +99,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Не аутентифицирован',
+            headers={'WWW-Authenticate': 'Bearer'},
         )
     return current_user
 
@@ -198,4 +207,3 @@ def get_auth_service(
         Экземпляр AuthService
     """
     return AuthService(db, cache)
-

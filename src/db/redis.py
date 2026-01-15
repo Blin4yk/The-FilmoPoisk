@@ -1,5 +1,3 @@
-from typing import Any
-
 from redis.asyncio import Redis, ConnectionPool
 
 from db.interface.interfaces import CacheStorage, CacheService, AbstractCache
@@ -26,7 +24,7 @@ class RedisCache(AbstractCache):
         Returns:
             Значение из кэша или None, если ключ не существует
         """
-        return await self._client.get(key, **kwargs)
+        return await self._client.get(key)
 
     async def set(self, key: str, value: str, expire: int = None, **kwargs) -> None:
         """
@@ -39,9 +37,22 @@ class RedisCache(AbstractCache):
             **kwargs: Дополнительные параметры для Redis set API
         """
         if expire:
-            await self._client.setex(key, expire, value, **kwargs)
+            await self._client.setex(key, expire, value)
         else:
             await self._client.set(key, value, **kwargs)
+
+    async def delete(self, key: str, **kwargs) -> None:
+        """
+        Удалить значение из кэша по ключу
+
+        Args:
+            key: Ключ для получения значения
+            **kwargs: Дополнительные параметры для Redis get API
+
+        Returns:
+            Значение из кэша или None, если ключ не существует
+        """
+        return await self._client.delete(key)
 
 
 class RedisCacheStorage(CacheStorage):
@@ -102,7 +113,7 @@ class RedisCacheService(CacheService):
 
 
 # Фабрика для создания Redis клиента
-async def create_redis_cache(host: str = "localhost", port: int = 6379, db: int = 0) -> CacheStorage:
+async def create_redis_cache(host: str = "redis", port: int = 6379, db: int = 0) -> CacheStorage:
     """Создать Redis кэш"""
     pool = ConnectionPool(host=host, port=port, db=db, decode_responses=True)
     redis_client = Redis(connection_pool=pool)

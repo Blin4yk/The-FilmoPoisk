@@ -29,6 +29,9 @@ class AbstractCache(ABC):
         """Установить значение в кэш"""
         ...
 
+    async def delete(self, *args, **kwargs):
+        ...
+
 
 class DataStorage(ABC):
     """Общая абстракция для хранилищ данных"""

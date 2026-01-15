@@ -1,5 +1,6 @@
 """API для аунтентификации и авторизации"""
 
+from datetime import datetime, timedelta
 from models.user import User
 
 from api.v1.dependencies.auth import get_auth_service, get_current_user
@@ -14,7 +15,7 @@ from api.v1.scheme.auth_scheme import (
     UserResponse,
     UserUpdate,
 )
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from services.auth import AuthService
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -62,6 +63,7 @@ async def register(
 
 @router.post('/login', response_model=TokenResponse)
 async def login(
+        response: Response,
         credentials: UserLogin,
         request: Request,
         auth_service: AuthService = Depends(get_auth_service),
@@ -70,6 +72,7 @@ async def login(
     Вход пользователя и получение JWT токенов.
 
     Args:
+        response: Response объект для установки куков
         credentials: Учетные данные для входа
         request: FastAPI запрос (для получения IP и User-Agent)
         auth_service: Сервис аутентификации
@@ -97,6 +100,27 @@ async def login(
         )
 
     user, access_token, refresh_token = result
+
+    # Устанавливаем токены в куки
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,  # В продакшене должно быть True
+        samesite="lax",
+        max_age=1800,  # 30 минут (в секундах)
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=604800,  # 7 дней (в секундах)
+    )
+
+    # Также возвращаем токены в теле ответа (опционально)
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -107,13 +131,15 @@ async def login(
 @router.post('/refresh', response_model=TokenResponse)
 async def refresh_token(
         request: Request,
+        response: Response,
         auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """
     Обновить access токен с помощью refresh токена.
 
     Args:
-        request: FastAPI запрос (для заголовка Authorization)
+        request: FastAPI запрос (для получения кук)
+        response: Response объект для обновления куков
         auth_service: Сервис аутентификации
 
     Returns:
@@ -122,14 +148,20 @@ async def refresh_token(
     Raises:
         HTTPException: Если токен невалиден или истек
     """
-    authorization = request.headers.get('Authorization')
-    if not authorization or not authorization.startswith('Bearer '):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Неверный формат токена',
-        )
+    # Получаем refresh_token из куков
+    refresh_token = request.cookies.get("refresh_token")
 
-    refresh_token = authorization.split(' ')[1]
+    if not refresh_token:
+        # Пробуем получить из заголовка (для обратной совместимости)
+        authorization = request.headers.get('Authorization')
+        if authorization and authorization.startswith('Bearer '):
+            refresh_token = authorization.split(' ')[1]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail='Refresh токен не найден в куках',
+            )
+
     result = await auth_service.refresh_access_token(refresh_token)
 
     if not result:
@@ -138,7 +170,21 @@ async def refresh_token(
             detail='Невалидный или истекший токен',
         )
 
-    access_token, _ = result
+    access_token, user_id = result
+
+    # Обновляем access_token в куках
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=1800,
+    )
+
+    # Также можно вернуть новый refresh_token, если используется ротация токенов
+    # В этом примере refresh_token остается тем же
+
     return TokenResponse(
         access_token=access_token,
         token_type='bearer',
@@ -148,13 +194,15 @@ async def refresh_token(
 @router.post('/logout', response_model=MessageResponse)
 async def logout(
         request: Request,
+        response: Response,
         auth_service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
     """
     Выход пользователя из системы путем отзыва refresh токена.
 
     Args:
-        request: FastAPI запрос (для заголовка Authorization)
+        request: FastAPI запрос (для получения кук)
+        response: Response объект для удаления куков
         auth_service: Сервис аутентификации
 
     Returns:
@@ -163,14 +211,15 @@ async def logout(
     Raises:
         HTTPException: Если токен невалиден
     """
-    authorization = request.headers.get('Authorization')
-    if not authorization or not authorization.startswith('Bearer '):
+    # Получаем refresh_token из куков
+    refresh_token = request.cookies.get("refresh_token")
+
+    if not refresh_token:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Неверный формат токена',
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Refresh токен не найден в куках',
         )
 
-    refresh_token = authorization.split(' ')[1]
     success = await auth_service.logout(refresh_token)
 
     if not success:
@@ -179,11 +228,16 @@ async def logout(
             detail='Невалидный токен',
         )
 
+    # Удаляем куки
+    response.delete_cookie(key="access_token")
+    response.delete_cookie(key="refresh_token")
+
     return MessageResponse(message='Успешный выход из системы')
 
 
 @router.post('/logout-all', response_model=MessageResponse)
 async def logout_all(
+        response: Response,
         current_user: User = Depends(get_current_user),
         auth_service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
@@ -191,6 +245,7 @@ async def logout_all(
     Выход пользователя из всех устройств.
 
     Args:
+        response: Response объект для удаления куков
         current_user: Текущий аутентифицированный пользователь
         auth_service: Сервис аутентификации
 
@@ -198,6 +253,11 @@ async def logout_all(
         Сообщение об успешном выходе
     """
     await auth_service.logout_all(current_user.id)
+
+    # Удаляем куки
+    response.delete_cookie(key="access_token")
+    response.delete_cookie(key="refresh_token")
+
     return MessageResponse(message='Успешный выход из всех устройств')
 
 
