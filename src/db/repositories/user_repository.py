@@ -66,7 +66,7 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
-    async def create(self, username: str, email: str, password_hash: str, is_superuser: bool = False) -> User:
+    async def create(self, username: str, email: str, password_hash: str, is_superuser: bool = True) -> User:
         """
         Создать нового пользователя.
 

@@ -84,7 +84,7 @@ async def film_details(
     return film
 
 
-@router.get("/", response_model=list[FilmShort])
+@router.get("/films_list", response_model=list[FilmShort])
 async def films_list(
     pagination: FilmListParams = Depends(),
     film_service: FilmService = Depends(get_film_service),
