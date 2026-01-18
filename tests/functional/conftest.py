@@ -1,11 +1,11 @@
 import logging
+from http import HTTPStatus
 
 import pytest
 import requests
 import time
 import os
 from typing import Generator
-
 
 
 # В зависимости от сборки, если локально, то localhost:, иначе fastapi:
@@ -19,11 +19,36 @@ class APIClient:
         self.base_url = base_url
         self.session = requests.Session()
 
-    def get(self, url, **kwargs):
-        # Добавляем базовый URL к относительному пути
+    def _make_url(self, url):
+        """Создает полный URL из относительного пути"""
         if not url.startswith(('http://', 'https://')):
             url = f"{self.base_url}{url}"
+        return url
+
+    def get(self, url, **kwargs):
+        """GET запрос"""
+        url = self._make_url(url)
         return self.session.get(url, **kwargs)
+
+    def post(self, url, **kwargs):
+        """POST запрос"""
+        url = self._make_url(url)
+        return self.session.post(url, **kwargs)
+
+    def patch(self, url, **kwargs):
+        """PATCH запрос"""
+        url = self._make_url(url)
+        return self.session.patch(url, **kwargs)
+
+    def put(self, url, **kwargs):
+        """PUT запрос"""
+        url = self._make_url(url)
+        return self.session.put(url, **kwargs)
+
+    def delete(self, url, **kwargs):
+        """DELETE запрос"""
+        url = self._make_url(url)
+        return self.session.delete(url, **kwargs)
 
 
 @pytest.fixture(scope="session")
@@ -60,3 +85,30 @@ def film_data():
         "star_doors": "2d825f60-9fff-4dfe-b294-1a45fa1e112d",
         "star_hit": "3d825f60-9fff-4dfe-b294-1a45fa1e113d",
     }
+
+
+@pytest.fixture
+def test_user(api_client):
+    """Fixture to create a test user."""
+    import uuid
+
+    username = f'test_user_{uuid.uuid4().hex[:8]}'
+    email = f'{username}@example.com'
+    password = 'test_password123'
+
+    data = {
+        'username': username,
+        'email': email,
+        'password': password,
+    }
+    response = api_client.post('/auth/register', json=data)
+    # Изменено: ожидаем 201 (Created) вместо 200 (OK)
+    assert response.status_code == HTTPStatus.CREATED
+    data['id'] = response.json()['id']
+    return data
+
+
+@pytest.fixture
+def authenticated_client(api_client, test_user):
+    """Fixture that returns authenticated client data."""
+    return test_user

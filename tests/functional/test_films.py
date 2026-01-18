@@ -31,7 +31,7 @@ class TestFilmEndpoints:
 
         assert response.status_code == HTTPStatus.NOT_FOUND
         data = response.json()
-        assert data["detail"] == "film not found"
+        assert data["detail"] == "Фильм не найден или доступ запрещен. Новые фильмы требуют роль subscriber."
 
     def test_get_films_list_default(self, api_client):
         """Тест получения списка фильмов с параметрами по умолчанию"""

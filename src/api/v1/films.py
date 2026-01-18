@@ -14,7 +14,7 @@ from services.film import FilmService, get_film_service
 from services.permission import PermissionService
 from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(tags=['films'])
+router = APIRouter(prefix='/api/v1/films', tags=['films'])
 
 class FilmListParams(PaginationParams):
     """Параметры для списка фильмов с фильтром по жанру"""
@@ -84,12 +84,12 @@ async def film_details(
     return film
 
 
-@router.get("/films_list", response_model=list[FilmShort])
+@router.get("/", response_model=list[FilmShort])
 async def films_list(
     pagination: FilmListParams = Depends(),
     film_service: FilmService = Depends(get_film_service),
     current_user: User | None = Depends(get_current_user_optional),
-    permission_service: PermissionService = Depends(get_permission_service),
+    permission_service: PermissionService | None = Depends(get_permission_service),
 ) -> list[FilmShort]:
     """
     Get списка фильмов с сортировкой и фильтрацией по жанрам.
