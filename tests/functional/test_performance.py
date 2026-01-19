@@ -1,5 +1,6 @@
-import pytest
 import time
+
+import pytest
 
 
 class TestFilmPerformance:
@@ -19,7 +20,7 @@ class TestFilmPerformance:
     def test_response_time_films_list(self, api_client):
         """Тест времени ответа для списка фильмов"""
         start_time = time.time()
-        response = api_client.get("/films/")
+        response = api_client.get('/films/')
         end_time = time.time()
 
         assert response.status_code == 200

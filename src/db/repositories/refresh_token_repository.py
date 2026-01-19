@@ -2,10 +2,9 @@
 from datetime import datetime
 from uuid import UUID
 
+from models.role import RefreshToken
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from models.role import RefreshToken
 
 
 class RefreshTokenRepository:
@@ -20,7 +19,9 @@ class RefreshTokenRepository:
         """
         self.session = session
 
-    async def create(self, user_id: UUID, token_jti: str, expires_at: datetime) -> RefreshToken:
+    async def create(
+        self, user_id: UUID, token_jti: str, expires_at: datetime
+    ) -> RefreshToken:
         """
         Создать запись refresh токена.
 
@@ -32,7 +33,9 @@ class RefreshTokenRepository:
         Returns:
             Созданный объект RefreshToken
         """
-        refresh_token = RefreshToken(user_id=user_id, token_jti=token_jti, expires_at=expires_at)
+        refresh_token = RefreshToken(
+            user_id=user_id, token_jti=token_jti, expires_at=expires_at
+        )
         self.session.add(refresh_token)
         await self.session.commit()
         await self.session.refresh(refresh_token)
@@ -48,7 +51,9 @@ class RefreshTokenRepository:
         Returns:
             Объект RefreshToken или None если не найден
         """
-        result = await self.session.execute(select(RefreshToken).where(RefreshToken.token_jti == token_jti))
+        result = await self.session.execute(
+            select(RefreshToken).where(RefreshToken.token_jti == token_jti)
+        )
         return result.scalar_one_or_none()
 
     async def delete_by_jti(self, token_jti: str) -> bool:
@@ -61,7 +66,9 @@ class RefreshTokenRepository:
         Returns:
             True если удален, False если не найден
         """
-        result = await self.session.execute(delete(RefreshToken).where(RefreshToken.token_jti == token_jti))
+        result = await self.session.execute(
+            delete(RefreshToken).where(RefreshToken.token_jti == token_jti)
+        )
         await self.session.commit()
         return result.rowcount > 0
 
@@ -75,7 +82,9 @@ class RefreshTokenRepository:
         Returns:
             Количество удаленных токенов
         """
-        result = await self.session.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
+        result = await self.session.execute(
+            delete(RefreshToken).where(RefreshToken.user_id == user_id)
+        )
         await self.session.commit()
         return result.rowcount
 
@@ -86,7 +95,8 @@ class RefreshTokenRepository:
         Returns:
             Количество удаленных токенов
         """
-        result = await self.session.execute(delete(RefreshToken).where(RefreshToken.expires_at < datetime.utcnow()))
+        result = await self.session.execute(
+            delete(RefreshToken).where(RefreshToken.expires_at < datetime.utcnow())
+        )
         await self.session.commit()
         return result.rowcount
-

@@ -2,11 +2,10 @@
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from db.interface.interfaces import AbstractCache
 from db.repositories.role_repository import RoleRepository
 from models.user import User
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class PermissionService:
@@ -24,7 +23,9 @@ class PermissionService:
         self.cache = cache
         self.role_repo = RoleRepository(session)
 
-    async def can_access_new_film(self, user: User | None, film_creation_date: datetime | None) -> bool:
+    async def can_access_new_film(
+        self, user: User | None, film_creation_date: datetime | None
+    ) -> bool:
         """
         Проверить, может ли пользователь получить доступ к фильму на основе даты его создания.
 
@@ -75,6 +76,7 @@ class PermissionService:
         cached_roles = await self.cache.get(roles_cache_key)
         if cached_roles:
             import json
+
             roles = json.loads(cached_roles)
             return role_name in roles
 
@@ -84,7 +86,7 @@ class PermissionService:
 
         # Кэшируем роли
         import json
+
         await self.cache.set(roles_cache_key, json.dumps(role_names), expire=600)
 
         return role_name in role_names
-

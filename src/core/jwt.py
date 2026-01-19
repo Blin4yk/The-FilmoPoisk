@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from core.config import settings
-from jose import jwt, JWTError
+from jose import JWTError, jwt
 
 
 class JWTService:
@@ -17,12 +17,12 @@ class JWTService:
         self.refresh_token_expire_days = settings.refresh_token_expire_days
 
     def create_access_token(
-            self,
-            user_id: str,
-            username: str,
-            is_superuser: bool,
-            roles: list[str],
-            generation: int = 0,
+        self,
+        user_id: str,
+        username: str,
+        is_superuser: bool,
+        roles: list[str],
+        generation: int = 0,
     ) -> str:
         """
         Создать JWT access токен
@@ -30,7 +30,9 @@ class JWTService:
         Returns:
             Закодированный JWT токен
         """
-        expire = datetime.now(timezone.utc) + timedelta(minutes=self.access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=self.access_token_expire_minutes
+        )
         payload = {
             'sub': user_id,
             'username': username,
@@ -53,7 +55,9 @@ class JWTService:
         Returns:
             Кортеж из (токен, jti)
         """
-        expire = datetime.now(timezone.utc) + timedelta(minutes=self.refresh_token_expire_days)
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=self.refresh_token_expire_days
+        )
         jti = str(uuid.uuid4())
         payload = {
             'sub': user_id,
@@ -81,7 +85,9 @@ class JWTService:
         except JWTError:
             return None
 
-    def verify_token(self, token: str, token_type: str = 'access') -> dict[str, any] | None:
+    def verify_token(
+        self, token: str, token_type: str = 'access'
+    ) -> dict[str, any] | None:
         """
         Проверить токен и его тип.
 

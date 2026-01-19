@@ -3,16 +3,15 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator
 
+from api.v1 import auth, films, roles
+from core.config import settings
+from db import elastic, postgres, redis
 from elasticsearch import AsyncElasticsearch
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-
-from api.v1 import auth, films, roles
-from core.config import settings
-from db import elastic, postgres, redis
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     redis.redis = Redis(host=settings.redis_host, port=settings.redis_port)
     elastic.es = AsyncElasticsearch(
         hosts=[f'http://{settings.elastic_host}:{settings.elastic_port}'],
-        headers={'Accept': 'application/vnd.elasticsearch+json; compatible-with=8'}
+        headers={'Accept': 'application/vnd.elasticsearch+json; compatible-with=8'},
     )
 
     # PostgreSQL инициализируется через SQLAlchemy engine в db/postgres.py
@@ -39,11 +38,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except SQLAlchemyError as e:
             if attempt < max_retries - 1:
                 logger.warning(
-                    f'Попытка {attempt + 1}/{max_retries}: Не удалось подключиться к PostgreSQL: {e}. Повтор через {retry_delay} сек...')
+                    f'Попытка {attempt + 1}/{max_retries}: Не удалось подключиться к PostgreSQL: {e}. Повтор через {retry_delay} сек...'
+                )
                 await asyncio.sleep(retry_delay)
             else:
                 logger.error(
-                    f'Не удалось подключиться к PostgreSQL после {max_retries} попыток: {e}. Приложение может работать некорректно.')
+                    f'Не удалось подключиться к PostgreSQL после {max_retries} попыток: {e}. Приложение может работать некорректно.'
+                )
         except Exception as e:
             logger.error(f'Неожиданная ошибка при подключении к PostgreSQL: {e}')
             break
@@ -61,13 +62,13 @@ app = FastAPI(
     openapi_url='/api/openapi.json',
     default_response_class=ORJSONResponse,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=['*'],
+    allow_headers=['*'],
     lifespan=lifespan,
     swagger_ui_parameters={
-        "persistAuthorization": True,
-        "docExpansion": "none",
-    }
+        'persistAuthorization': True,
+        'docExpansion': 'none',
+    },
 )
 
 app.include_router(auth.router)

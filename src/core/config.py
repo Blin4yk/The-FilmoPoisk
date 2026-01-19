@@ -1,10 +1,9 @@
 import os
 from logging import config as logging_config
 
+from core.logger import LOGGING
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from core.logger import LOGGING
 
 # Применяем настройки логирования
 logging_config.dictConfig(LOGGING)
@@ -32,7 +31,9 @@ class Settings(BaseSettings):
         """Вернуть URL базы данных PostgreSQL."""
         return f'postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}'
 
-    jwt_secret_key: str = Field('zK9kFhzwajNklEzmnoYVWma4EmyXXWtOkTyJGZ6BdgV', alias='JWT_SECRET_KEY')
+    jwt_secret_key: str = Field(
+        'zK9kFhzwajNklEzmnoYVWma4EmyXXWtOkTyJGZ6BdgV', alias='JWT_SECRET_KEY'
+    )
     jwt_algorithm: str = Field('HS256', alias='JWT_ALGORITHM')
     access_token_expire_minutes: int = Field(15, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
     refresh_token_expire_days: int = Field(7, alias='REFRESH_TOKEN_EXPIRE_DAYS')

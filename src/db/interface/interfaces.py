@@ -29,6 +29,7 @@ class AbstractCache(ABC):
         """Установить значение в кэш"""
         ...
 
+    @abc.abstractmethod
     async def delete(self, *args, **kwargs):
         ...
 
@@ -66,7 +67,9 @@ class SearchStorage(DataStorage):
         ...
 
     @abstractmethod
-    async def index(self, index: str, document: dict[str, any], id: str = None) -> dict[str, any]:
+    async def index(
+        self, index: str, document: dict[str, any], id: str = None
+    ) -> dict[str, any]:
         """Индексация документа"""
         ...
 
@@ -105,22 +108,18 @@ class FilmStorage(ABC):
 
     @abstractmethod
     async def get_films(
-            self,
-            sort: str = "-imdb_rating",
-            genre: str | None = None,
-            page: int = 1,
-            size: int = 50
+        self,
+        sort: str = '-imdb_rating',
+        genre: str | None = None,
+        page: int = 1,
+        size: int = 50,
     ) -> list[dict[str, any]]:
         """Получить список фильмов с фильтрацией"""
         ...
 
     @abstractmethod
     async def search_films(
-            self,
-            query: str,
-            sort: str = "-imdb_rating",
-            page: int = 1,
-            size: int = 50
+        self, query: str, sort: str = '-imdb_rating', page: int = 1, size: int = 50
     ) -> list[dict[str, any]]:
         """Поиск фильмов"""
         ...
@@ -145,6 +144,8 @@ class CacheService(ABC):
         ...
 
     @abstractmethod
-    async def set_films_list(self, cache_key: str, films_data: str, expire: int = 60) -> None:
+    async def set_films_list(
+        self, cache_key: str, films_data: str, expire: int = 60
+    ) -> None:
         """Сохранить список фильмов в кэш"""
         ...

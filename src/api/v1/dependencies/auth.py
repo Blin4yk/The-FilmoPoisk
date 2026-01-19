@@ -2,15 +2,14 @@
 import json
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from core.jwt import jwt_service
 from db.interface.interfaces import AbstractCache
 from db.postgres import get_db
 from db.redis import get_cache
+from fastapi import Depends, HTTPException, Request, status
 from models.user import User
 from services.auth import AuthService
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def get_current_user_optional(
@@ -137,6 +136,7 @@ def check_role_permission(role_name: str):
     Returns:
         Функция зависимости
     """
+
     async def _check_role(
         current_user: User = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),

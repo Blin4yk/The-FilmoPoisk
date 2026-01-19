@@ -2,11 +2,10 @@
 import uuid
 from datetime import datetime, timezone
 
+from db.postgres import Base
 from sqlalchemy import Column, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-
-from db.postgres import Base
 
 
 class Role(Base):
@@ -17,11 +16,20 @@ class Role(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(50), unique=True, nullable=False, index=True)
     description = Column(String(500), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=datetime.now(timezone.utc),
+        onupdate=datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     # Связи
-    user_roles = relationship('UserRole', back_populates='role', cascade='all, delete-orphan')
+    user_roles = relationship(
+        'UserRole', back_populates='role', cascade='all, delete-orphan'
+    )
 
     def __repr__(self) -> str:
         return f'<Role {self.name}>'
@@ -33,9 +41,21 @@ class UserRole(Base):
     __tablename__ = 'user_roles'
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
-    role_id = Column(UUID(as_uuid=True), ForeignKey('roles.id', ondelete='CASCADE'), nullable=False, index=True)
-    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    role_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey('roles.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    created_at = Column(
+        DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False
+    )
 
     __table_args__ = (UniqueConstraint('user_id', 'role_id', name='uq_user_role'),)
 
@@ -53,10 +73,20 @@ class LoginHistory(Base):
     __tablename__ = 'login_history'
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(String(500), nullable=True)
-    login_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False, index=True)
+    login_at = Column(
+        DateTime(timezone=True),
+        default=datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
 
     # Relationships
     user = relationship('User', back_populates='login_history')
@@ -71,14 +101,20 @@ class RefreshToken(Base):
     __tablename__ = 'refresh_tokens'
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
     token_jti = Column(String(36), unique=True, nullable=False, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
-    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False
+    )
 
     # Связи
     user = relationship('User', back_populates='refresh_tokens')
 
     def __repr__(self) -> str:
         return f'<RefreshToken user_id={self.user_id} jti={self.token_jti}>'
-

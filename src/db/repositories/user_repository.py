@@ -1,12 +1,10 @@
 """Репозиторий для операций с пользователями в базе данных."""
 from uuid import UUID
 
+from models.user import User
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
-from models.role import UserRole
-from models.user import User
 
 
 class UserRepository:
@@ -47,7 +45,9 @@ class UserRepository:
             Объект User или None если не найден
         """
         result = await self.session.execute(
-            select(User).where(User.username == username).options(selectinload(User.roles))
+            select(User)
+            .where(User.username == username)
+            .options(selectinload(User.roles))
         )
         return result.scalar_one_or_none()
 
@@ -66,7 +66,9 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
-    async def create(self, username: str, email: str, password_hash: str, is_superuser: bool = True) -> User:
+    async def create(
+        self, username: str, email: str, password_hash: str, is_superuser: bool = True
+    ) -> User:
         """
         Создать нового пользователя.
 
@@ -105,11 +107,15 @@ class UserRepository:
         Returns:
             Обновленный объект User или None если не найден
         """
-        await self.session.execute(update(User).where(User.id == user_id).values(username=new_username))
+        await self.session.execute(
+            update(User).where(User.id == user_id).values(username=new_username)
+        )
         await self.session.commit()
         return await self.get_by_id(user_id)
 
-    async def update_password(self, user_id: UUID, new_password_hash: str) -> User | None:
+    async def update_password(
+        self, user_id: UUID, new_password_hash: str
+    ) -> User | None:
         """
         Обновить пароль пользователя.
 
@@ -120,7 +126,11 @@ class UserRepository:
         Returns:
             Обновленный объект User или None если не найден
         """
-        await self.session.execute(update(User).where(User.id == user_id).values(password_hash=new_password_hash))
+        await self.session.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(password_hash=new_password_hash)
+        )
         await self.session.commit()
         return await self.get_by_id(user_id)
 
@@ -145,7 +155,8 @@ class UserRepository:
             update_values['password_hash'] = new_password_hash
 
         if update_values:
-            await self.session.execute(update(User).where(User.id == user_id).values(**update_values))
+            await self.session.execute(
+                update(User).where(User.id == user_id).values(**update_values)
+            )
             await self.session.commit()
         return await self.get_by_id(user_id)
-

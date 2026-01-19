@@ -1,6 +1,5 @@
-from redis.asyncio import Redis, ConnectionPool
-
-from db.interface.interfaces import CacheStorage, CacheService, AbstractCache
+from db.interface.interfaces import AbstractCache, CacheService, CacheStorage
+from redis.asyncio import ConnectionPool, Redis
 
 
 class RedisCache(AbstractCache):
@@ -97,23 +96,27 @@ class RedisCacheService(CacheService):
         self.cache = cache_storage
 
     async def get_film(self, film_id: str) -> str | None:
-        return await self.cache.get(f"film:{film_id}")
+        return await self.cache.get(f'film:{film_id}')
 
     async def set_film(self, film_id: str, film_data: str, expire: int = 300) -> None:
-        await self.cache.set(f"film:{film_id}", film_data, expire)
+        await self.cache.set(f'film:{film_id}', film_data, expire)
 
     async def get_films_list(self, cache_key: str) -> str | None:
-        return await self.cache.get(f"films:{cache_key}")
+        return await self.cache.get(f'films:{cache_key}')
 
-    async def set_films_list(self, cache_key: str, films_data: str, expire: int = 60) -> None:
-        await self.cache.set(f"films:{cache_key}", films_data, expire)
+    async def set_films_list(
+        self, cache_key: str, films_data: str, expire: int = 60
+    ) -> None:
+        await self.cache.set(f'films:{cache_key}', films_data, expire)
 
     async def health_check(self) -> bool:
         return await self.cache.health_check()
 
 
 # Фабрика для создания Redis клиента
-async def create_redis_cache(host: str = "redis", port: int = 6379, db: int = 0) -> CacheStorage:
+async def create_redis_cache(
+    host: str = 'redis', port: int = 6379, db: int = 0
+) -> CacheStorage:
     """Создать Redis кэш"""
     pool = ConnectionPool(host=host, port=port, db=db, decode_responses=True)
     redis_client = Redis(connection_pool=pool)
@@ -130,7 +133,7 @@ async def get_redis() -> Redis:
 
 async def get_cache_storage() -> CacheStorage:
     if redis is None:
-        raise RuntimeError("Radis не инициализирован")
+        raise RuntimeError('Radis не инициализирован')
     return RedisCacheStorage(redis)
 
 
@@ -142,5 +145,5 @@ async def get_cache_service() -> CacheService:
 async def get_cache() -> AbstractCache:
     """Фабрика для получения универсальной абстракции кэша"""
     if redis is None:
-        raise RuntimeError("Radis не инициализирован")
+        raise RuntimeError('Radis не инициализирован')
     return RedisCache(redis)

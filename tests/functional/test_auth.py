@@ -44,7 +44,10 @@ class TestAuthEndpoints:
 
         assert response.status_code == HTTPStatus.CONFLICT
         result = response.json()
-        assert 'username' in result.get('detail', '').lower() or 'already' in result.get('detail', '').lower()
+        assert (
+            'username' in result.get('detail', '').lower()
+            or 'already' in result.get('detail', '').lower()
+        )
 
     def test_login_success(self, api_client, test_user):
         """Тест успешного входа в систему."""
@@ -73,7 +76,9 @@ class TestAuthEndpoints:
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         # Изменено: проверяем русский текст ошибки
         detail = response.json().get('detail', '').lower()
-        assert any(word in detail for word in ['неверное', 'invalid', 'ошибка', 'error'])
+        assert any(
+            word in detail for word in ['неверное', 'invalid', 'ошибка', 'error']
+        )
 
     def test_refresh_token_success(self, api_client, authenticated_client):
         """Тест успешного обновления токена."""
@@ -115,7 +120,10 @@ class TestAuthEndpoints:
         """Тест получения профиля без аутентификации."""
         response = api_client.get('/auth/profile')
 
-        assert response.status_code in [HTTPStatus.UNAUTHORIZED, HTTPStatus.METHOD_NOT_ALLOWED]
+        assert response.status_code in [
+            HTTPStatus.UNAUTHORIZED,
+            HTTPStatus.METHOD_NOT_ALLOWED,
+        ]
 
     def test_update_profile_success(self, api_client, authenticated_client):
         """Тест обновления профиля пользователя."""

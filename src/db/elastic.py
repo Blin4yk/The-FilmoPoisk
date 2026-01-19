@@ -1,14 +1,15 @@
-from typing import Protocol, Any
+from typing import Any, Protocol
 
+from db.interface.interfaces import AbstractDataStorage, FilmStorage, SearchStorage
 from elasticsearch import AsyncElasticsearch, NotFoundError
-
-from db.interface.interfaces import SearchStorage, FilmStorage, AbstractDataStorage
 
 
 class ElasticDataStorage(AbstractDataStorage):
     """Реализация AbstractDataStorage для Elasticsearch (принцип D из SOLID)"""
 
-    def __init__(self, elastic_client: AsyncElasticsearch, default_index: str = "movies"):
+    def __init__(
+        self, elastic_client: AsyncElasticsearch, default_index: str = 'movies'
+    ):
         """
         Args:
             elastic_client: Клиент Elasticsearch
@@ -17,7 +18,9 @@ class ElasticDataStorage(AbstractDataStorage):
         self._client = elastic_client
         self.default_index = default_index
 
-    async def get_by_id(self, index: str = None, id: str = None, **kwargs) -> dict[str, Any] | None:
+    async def get_by_id(
+        self, index: str = None, id: str = None, **kwargs
+    ) -> dict[str, Any] | None:
         """
         Получить документ по ID из индекса
 
@@ -31,11 +34,11 @@ class ElasticDataStorage(AbstractDataStorage):
         """
         index = index or self.default_index
         if id is None:
-            raise ValueError("требуется параметр id")
-        
+            raise ValueError('требуется параметр id')
+
         try:
             result = await self._client.get(index=index, id=id, **kwargs)
-            return result.get("_source")
+            return result.get('_source')
         except NotFoundError:
             return None
 
@@ -46,7 +49,7 @@ class ElasticDataStorage(AbstractDataStorage):
         sort: list | str = None,
         page: int = 1,
         size: int = 50,
-        **kwargs
+        **kwargs,
     ) -> list[dict[str, Any]]:
         """
         Получить список документов из индекса
@@ -63,20 +66,20 @@ class ElasticDataStorage(AbstractDataStorage):
             Список словарей с данными документов
         """
         index = index or self.default_index
-        
+
         search_body = {
-            "query": query or {"match_all": {}},
-            "from": (page - 1) * size,
-            "size": size,
-            **kwargs
+            'query': query or {'match_all': {}},
+            'from': (page - 1) * size,
+            'size': size,
+            **kwargs,
         }
-        
+
         if sort:
-            search_body["sort"] = sort
+            search_body['sort'] = sort
 
         try:
             response = await self._client.search(index=index, body=search_body)
-            return [hit["_source"] for hit in response["hits"]["hits"]]
+            return [hit['_source'] for hit in response['hits']['hits']]
         except Exception:
             return []
 
@@ -121,7 +124,9 @@ class ElasticsearchStorage(SearchStorage):
         except NotFoundError:
             return None
 
-    async def index(self, index: str, document: dict[str, any], id: str = None) -> dict[str, any]:
+    async def index(
+        self, index: str, document: dict[str, any], id: str = None
+    ) -> dict[str, any]:
         if id:
             return await self._client.index(index=index, document=document, id=id)
         return await self._client.index(index=index, document=document)
@@ -130,99 +135,99 @@ class ElasticsearchStorage(SearchStorage):
 class ElasticsearchFilmStorage(FilmStorage):
     """Реализация FilmStorage для Elasticsearch"""
 
-    def __init__(self, search_storage: SearchStorage, index: str = "movies"):
+    def __init__(self, search_storage: SearchStorage, index: str = 'movies'):
         self.storage = search_storage
         self.index = index
 
     async def get_film_by_id(self, film_id: str) -> dict[str, any] | None:
         result = await self.storage.get(self.index, film_id)
         if result:
-            return result.get("_source")
+            return result.get('_source')
         return None
 
     async def get_films(
-            self,
-            sort: str = "-imdb_rating",
-            genre: str | None = None,
-            page: int = 1,
-            size: int = 50
+        self,
+        sort: str = '-imdb_rating',
+        genre: str | None = None,
+        page: int = 1,
+        size: int = 50,
     ) -> list[dict[str, any]]:
         search_body = {
-            "query": {"match_all": {}},
-            "from": (page - 1) * size,
-            "size": size,
-            "_source": ["id", "title", "imdb_rating"]
+            'query': {'match_all': {}},
+            'from': (page - 1) * size,
+            'size': size,
+            '_source': ['id', 'title', 'imdb_rating'],
         }
 
         if genre:
-            search_body["query"] = {
-                "nested": {
-                    "path": "genres",
-                    "query": {
-                        "bool": {
-                            "must": [{"terms": {"genres": [genre]}}]
-                        }
-                    }
+            search_body['query'] = {
+                'nested': {
+                    'path': 'genres',
+                    'query': {'bool': {'must': [{'terms': {'genres': [genre]}}]}},
                 }
             }
 
         sort_field = sort.lstrip('-')
-        sort_order = "desc" if sort.startswith('-') else "asc"
+        sort_order = 'desc' if sort.startswith('-') else 'asc'
 
-        if sort_field == "imdb_rating":
-            search_body["sort"] = [{"imdb_rating": {"order": sort_order, "missing": "_last"}}]
-        elif sort_field == "title":
-            search_body["sort"] = [{"title.raw": {"order": sort_order}}]
+        if sort_field == 'imdb_rating':
+            search_body['sort'] = [
+                {'imdb_rating': {'order': sort_order, 'missing': '_last'}}
+            ]
+        elif sort_field == 'title':
+            search_body['sort'] = [{'title.raw': {'order': sort_order}}]
         else:
-            search_body["sort"] = [{"imdb_rating": {"order": "desc", "missing": "_last"}}]
+            search_body['sort'] = [
+                {'imdb_rating': {'order': 'desc', 'missing': '_last'}}
+            ]
 
         try:
             response = await self.storage.search(self.index, search_body)
-            return [hit["_source"] for hit in response["hits"]["hits"]]
+            return [hit['_source'] for hit in response['hits']['hits']]
         except Exception:
             return []
 
     async def search_films(
-            self,
-            query: str,
-            sort: str = "-imdb_rating",
-            page: int = 1,
-            size: int = 50
+        self, query: str, sort: str = '-imdb_rating', page: int = 1, size: int = 50
     ) -> list[dict[str, any]]:
         search_body = {
-            "query": {
-                "multi_match": {
-                    "query": query,
-                    "fields": [
-                        "title^3",
-                        "description",
-                        "genres",
-                        "directors_names",
-                        "actors_names",
-                        "writers_names"
+            'query': {
+                'multi_match': {
+                    'query': query,
+                    'fields': [
+                        'title^3',
+                        'description',
+                        'genres',
+                        'directors_names',
+                        'actors_names',
+                        'writers_names',
                     ],
-                    "fuzziness": "auto",
-                    "operator": "or"
+                    'fuzziness': 'auto',
+                    'operator': 'or',
                 }
             },
-            "from": (page - 1) * size,
-            "size": size,
-            "_source": ["id", "title", "imdb_rating"]
+            'from': (page - 1) * size,
+            'size': size,
+            '_source': ['id', 'title', 'imdb_rating'],
         }
 
         sort_field = sort.lstrip('-')
-        sort_order = "desc" if sort.startswith('-') else "asc"
+        sort_order = 'desc' if sort.startswith('-') else 'asc'
 
-        if sort_field == "imdb_rating":
-            search_body["sort"] = [{"imdb_rating": {"order": sort_order, "missing": "_last"}}]
-        elif sort_field == "title":
-            search_body["sort"] = [{"title.raw": {"order": sort_order}}]
+        if sort_field == 'imdb_rating':
+            search_body['sort'] = [
+                {'imdb_rating': {'order': sort_order, 'missing': '_last'}}
+            ]
+        elif sort_field == 'title':
+            search_body['sort'] = [{'title.raw': {'order': sort_order}}]
         else:
-            search_body["sort"] = [{"imdb_rating": {"order": "desc", "missing": "_last"}}]
+            search_body['sort'] = [
+                {'imdb_rating': {'order': 'desc', 'missing': '_last'}}
+            ]
 
         try:
             response = await self.storage.search(self.index, search_body)
-            return [hit["_source"] for hit in response["hits"]["hits"]]
+            return [hit['_source'] for hit in response['hits']['hits']]
         except Exception:
             return []
 
@@ -247,7 +252,7 @@ async def get_elastic() -> AsyncElasticsearch:
 
 async def get_search_storage() -> SearchStorage:
     if es is None:
-        raise RuntimeError("Elasticsearch не инициализированная")
+        raise RuntimeError('Elasticsearch не инициализированная')
     return ElasticsearchStorage(es)
 
 
@@ -259,5 +264,5 @@ async def get_film_storage() -> FilmStorage:
 async def get_storage() -> AbstractDataStorage:
     """Фабрика для получения универсальной абстракции хранилища данных"""
     if es is None:
-        raise RuntimeError("Elasticsearch не инициализированная")
-    return ElasticDataStorage(es, default_index="movies")
+        raise RuntimeError('Elasticsearch не инициализированная')
+    return ElasticDataStorage(es, default_index='movies')

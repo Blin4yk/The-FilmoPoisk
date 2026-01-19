@@ -1,8 +1,5 @@
 """API для аунтентификации и авторизации"""
 
-from datetime import datetime, timedelta
-from models.user import User
-
 from api.v1.dependencies.auth import get_auth_service, get_current_user
 from api.v1.dependencies.dependency import PaginationParams
 from api.v1.scheme.auth_scheme import (
@@ -16,27 +13,30 @@ from api.v1.scheme.auth_scheme import (
     UserUpdate,
 )
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from models.user import User
 from services.auth import AuthService
 
-router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 
 
 class LoginHistoryParams(PaginationParams):
     """Параметры пагинации для истории входов."""
 
     def __init__(
-            self,
-            page: int = Query(1, ge=1, description='Номер страницы'),
-            size: int = Query(10, ge=1, le=100, description='Размер страницы'),
+        self,
+        page: int = Query(1, ge=1, description='Номер страницы'),
+        size: int = Query(10, ge=1, le=100, description='Размер страницы'),
     ):
         """Инициализация параметров пагинации."""
         super().__init__(sort='', page=page, size=size)
 
 
-@router.post('/register', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    '/register', response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
 async def register(
-        user_data: UserRegister,
-        auth_service: AuthService = Depends(get_auth_service),
+    user_data: UserRegister,
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> UserResponse:
     """
     Регистрация нового пользователя.
@@ -63,10 +63,10 @@ async def register(
 
 @router.post('/login', response_model=TokenResponse)
 async def login(
-        response: Response,
-        credentials: UserLogin,
-        request: Request,
-        auth_service: AuthService = Depends(get_auth_service),
+    response: Response,
+    credentials: UserLogin,
+    request: Request,
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """
     Вход пользователя и получение JWT токенов.
@@ -103,20 +103,20 @@ async def login(
 
     # Устанавливаем токены в куки
     response.set_cookie(
-        key="access_token",
+        key='access_token',
         value=access_token,
         httponly=True,
         secure=False,  # В продакшене должно быть True
-        samesite="lax",
+        samesite='lax',
         max_age=1800,  # 30 минут (в секундах)
     )
 
     response.set_cookie(
-        key="refresh_token",
+        key='refresh_token',
         value=refresh_token,
         httponly=True,
         secure=False,
-        samesite="lax",
+        samesite='lax',
         max_age=604800,  # 7 дней (в секундах)
     )
 
@@ -130,9 +130,9 @@ async def login(
 
 @router.post('/refresh', response_model=TokenResponse)
 async def refresh_token(
-        request: Request,
-        response: Response,
-        auth_service: AuthService = Depends(get_auth_service),
+    request: Request,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """
     Обновить access токен с помощью refresh токена.
@@ -149,7 +149,7 @@ async def refresh_token(
         HTTPException: Если токен невалиден или истек
     """
     # Получаем refresh_token из куков
-    refresh_token = request.cookies.get("refresh_token")
+    refresh_token = request.cookies.get('refresh_token')
 
     if not refresh_token:
         # Пробуем получить из заголовка (для обратной совместимости)
@@ -174,11 +174,11 @@ async def refresh_token(
 
     # Обновляем access_token в куках
     response.set_cookie(
-        key="access_token",
+        key='access_token',
         value=access_token,
         httponly=True,
         secure=False,
-        samesite="lax",
+        samesite='lax',
         max_age=1800,
     )
 
@@ -193,9 +193,9 @@ async def refresh_token(
 
 @router.post('/logout', response_model=MessageResponse)
 async def logout(
-        request: Request,
-        response: Response,
-        auth_service: AuthService = Depends(get_auth_service),
+    request: Request,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
     """
     Выход пользователя из системы путем отзыва refresh токена.
@@ -212,7 +212,7 @@ async def logout(
         HTTPException: Если токен невалиден
     """
     # Получаем refresh_token из куков
-    refresh_token = request.cookies.get("refresh_token")
+    refresh_token = request.cookies.get('refresh_token')
 
     if not refresh_token:
         raise HTTPException(
@@ -229,17 +229,17 @@ async def logout(
         )
 
     # Удаляем куки
-    response.delete_cookie(key="access_token")
-    response.delete_cookie(key="refresh_token")
+    response.delete_cookie(key='access_token')
+    response.delete_cookie(key='refresh_token')
 
     return MessageResponse(message='Успешный выход из системы')
 
 
 @router.post('/logout-all', response_model=MessageResponse)
 async def logout_all(
-        response: Response,
-        current_user: User = Depends(get_current_user),
-        auth_service: AuthService = Depends(get_auth_service),
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
     """
     Выход пользователя из всех устройств.
@@ -255,17 +255,17 @@ async def logout_all(
     await auth_service.logout_all(current_user.id)
 
     # Удаляем куки
-    response.delete_cookie(key="access_token")
-    response.delete_cookie(key="refresh_token")
+    response.delete_cookie(key='access_token')
+    response.delete_cookie(key='refresh_token')
 
     return MessageResponse(message='Успешный выход из всех устройств')
 
 
 @router.patch('/profile', response_model=UserResponse)
 async def update_profile(
-        update_data: UserUpdate,
-        current_user: User = Depends(get_current_user),
-        auth_service: AuthService = Depends(get_auth_service),
+    update_data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> UserResponse:
     """
     Обновить профиль пользователя (логин и/или пароль).
@@ -288,7 +288,9 @@ async def update_profile(
         )
 
     try:
-        updated_user = await auth_service.update_user_profile(current_user.id, update_data)
+        updated_user = await auth_service.update_user_profile(
+            current_user.id, update_data
+        )
         if not updated_user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -304,9 +306,9 @@ async def update_profile(
 
 @router.get('/login-history', response_model=LoginHistoryListResponse)
 async def get_login_history(
-        pagination: LoginHistoryParams = Depends(),
-        current_user: User = Depends(get_current_user),
-        auth_service: AuthService = Depends(get_auth_service),
+    pagination: LoginHistoryParams = Depends(),
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> LoginHistoryListResponse:
     """
     Получить историю входов текущего пользователя.

@@ -2,8 +2,6 @@
 
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from api.v1.scheme.auth_scheme import UserRegister, UserUpdate
 from core.jwt import jwt_service
 from core.security import get_password_hash, verify_password
@@ -13,6 +11,7 @@ from db.repositories.refresh_token_repository import RefreshTokenRepository
 from db.repositories.role_repository import RoleRepository
 from db.repositories.user_repository import UserRepository
 from models.user import User
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class AuthService:
@@ -65,12 +64,20 @@ class AuthService:
 
         # Создаем пользователя
         user = await self.user_repo.create(
-            username=user_data.username, email=user_data.email, password_hash=password_hash
+            username=user_data.username,
+            email=user_data.email,
+            password_hash=password_hash,
         )
 
         return user
 
-    async def authenticate_user(self, username: str, password: str, ip_address: str | None = None, user_agent: str | None = None) -> tuple[User, str, str] | None:
+    async def authenticate_user(
+        self,
+        username: str,
+        password: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> tuple[User, str, str] | None:
         """
         Аутентифицировать пользователя и вернуть токены.
 
@@ -110,7 +117,9 @@ class AuthService:
         # Сохраняем refresh токен в базу данных
         from datetime import datetime, timedelta
 
-        expires_at = datetime.utcnow() + timedelta(days=jwt_service.refresh_token_expire_days)
+        expires_at = datetime.utcnow() + timedelta(
+            days=jwt_service.refresh_token_expire_days
+        )
         await self.refresh_token_repo.create(user.id, jti, expires_at)
 
         # Сохраняем историю входа
@@ -192,6 +201,7 @@ class AuthService:
         exp = payload.get('exp')
         if exp:
             from datetime import datetime
+
             current_time = datetime.utcnow().timestamp()
             ttl = int(exp - current_time)  # Оставшееся время в секундах
             if ttl > 0:
@@ -209,8 +219,6 @@ class AuthService:
         Args:
             user_id: UUID пользователя
         """
-        # Увеличиваем поколение
-        generation = await self._increment_user_generation(user_id)
 
         # Инвалидируем кэш
         await self._invalidate_user_cache(user_id)
@@ -257,7 +265,9 @@ class AuthService:
 
         return updated_user
 
-    async def get_login_history(self, user_id: UUID, page: int = 1, size: int = 10) -> tuple[list, int]:
+    async def get_login_history(
+        self, user_id: UUID, page: int = 1, size: int = 10
+    ) -> tuple[list, int]:
         """
         Получить историю входов пользователя.
 
@@ -314,4 +324,3 @@ class AuthService:
         """
         await self.cache.delete(f'user:{user_id}')
         await self.cache.delete(f'user:roles:{user_id}')
-

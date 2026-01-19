@@ -1,13 +1,12 @@
 """Сервис управления ролями."""
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from api.v1.scheme.role_scheme import RoleCreate, RoleUpdate
 from db.interface.interfaces import AbstractCache
 from db.repositories.role_repository import RoleRepository
 from db.repositories.user_repository import UserRepository
 from models.role import Role
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class RoleService:
@@ -57,7 +56,9 @@ class RoleService:
         """
         return await self.role_repo.get_by_id(role_id)
 
-    async def get_all_roles(self, page: int = 1, size: int = 50) -> tuple[list[Role], int]:
+    async def get_all_roles(
+        self, page: int = 1, size: int = 50
+    ) -> tuple[list[Role], int]:
         """
         Получить все роли с пагинацией.
 
@@ -93,7 +94,9 @@ class RoleService:
             if existing:
                 raise ValueError('Роль с таким именем уже существует')
 
-        return await self.role_repo.update(role_id, role_data.name, role_data.description)
+        return await self.role_repo.update(
+            role_id, role_data.name, role_data.description
+        )
 
     async def delete_role(self, role_id: UUID) -> bool:
         """
@@ -111,7 +114,9 @@ class RoleService:
         # Проверяем, назначена ли роль каким-либо пользователям
         has_users = await self.role_repo.check_role_has_users(role_id)
         if has_users:
-            raise ValueError('Невозможно удалить роль: она назначена одному или нескольким пользователям')
+            raise ValueError(
+                'Невозможно удалить роль: она назначена одному или нескольким пользователям'
+            )
 
         return await self.role_repo.delete(role_id)
 
@@ -204,4 +209,3 @@ class RoleService:
         """
         roles = await self.role_repo.get_user_roles(user_id)
         return any(role.name == role_name for role in roles)
-

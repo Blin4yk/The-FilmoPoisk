@@ -3,7 +3,6 @@ import asyncio
 from getpass import getpass
 
 import typer
-
 from cli.create_superuser import _create_superuser
 
 main_app = typer.Typer()
@@ -52,4 +51,3 @@ def cli() -> None:
 
 if __name__ == '__main__':
     cli()
-

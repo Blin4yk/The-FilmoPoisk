@@ -3,7 +3,6 @@ import asyncio
 from getpass import getpass
 
 import typer
-
 from core.security import get_password_hash
 from db.postgres import AsyncSessionLocal
 from db.repositories.user_repository import UserRepository
@@ -23,7 +22,9 @@ async def _create_superuser(username: str, email: str, password: str) -> None:
 
         existing_email = await user_repo.get_by_email(email)
         if existing_email:
-            typer.echo(f'Ошибка: Пользователь с email "{email}" уже существует', err=True)
+            typer.echo(
+                f'Ошибка: Пользователь с email "{email}" уже существует', err=True
+            )
             raise typer.Exit(code=1)
 
         # Хешируем пароль
@@ -73,4 +74,3 @@ def create_superuser(
 
     # Создаем суперпользователя
     asyncio.run(_create_superuser(username, email, password))
-

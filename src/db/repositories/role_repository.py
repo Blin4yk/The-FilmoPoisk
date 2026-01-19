@@ -1,11 +1,10 @@
 """Репозиторий для операций с ролями в базе данных."""
 from uuid import UUID
 
+from models.role import Role, UserRole
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
-from models.role import Role, UserRole
 
 
 class RoleRepository:
@@ -58,12 +57,16 @@ class RoleRepository:
             Кортеж из (список объектов Role, общее количество)
         """
         # Получаем общее количество
-        count_result = await self.session.execute(select(func.count()).select_from(Role))
+        count_result = await self.session.execute(
+            select(func.count()).select_from(Role)
+        )
         total = count_result.scalar() or 0
 
         # Получаем результаты с пагинацией
         offset = (page - 1) * size
-        result = await self.session.execute(select(Role).order_by(Role.name).offset(offset).limit(size))
+        result = await self.session.execute(
+            select(Role).order_by(Role.name).offset(offset).limit(size)
+        )
         items = list(result.scalars().all())
 
         return items, total
@@ -85,7 +88,9 @@ class RoleRepository:
         await self.session.refresh(role)
         return role
 
-    async def update(self, role_id: UUID, name: str | None = None, description: str | None = None) -> Role | None:
+    async def update(
+        self, role_id: UUID, name: str | None = None, description: str | None = None
+    ) -> Role | None:
         """
         Обновить роль.
 
@@ -108,7 +113,9 @@ class RoleRepository:
 
         from sqlalchemy import update
 
-        await self.session.execute(update(Role).where(Role.id == role_id).values(**update_values))
+        await self.session.execute(
+            update(Role).where(Role.id == role_id).values(**update_values)
+        )
         await self.session.commit()
         return await self.get_by_id(role_id)
 
@@ -130,7 +137,9 @@ class RoleRepository:
         await self.session.commit()
         return True
 
-    async def assign_role_to_user(self, user_id: UUID, role_id: UUID) -> UserRole | None:
+    async def assign_role_to_user(
+        self, user_id: UUID, role_id: UUID
+    ) -> UserRole | None:
         """
         Назначить роль пользователю.
 
@@ -143,7 +152,9 @@ class RoleRepository:
         """
         # Проверяем, не назначена ли уже
         existing = await self.session.execute(
-            select(UserRole).where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+            select(UserRole).where(
+                UserRole.user_id == user_id, UserRole.role_id == role_id
+            )
         )
         if existing.scalar_one_or_none():
             return None
@@ -166,7 +177,9 @@ class RoleRepository:
             True если отозвана, False если не найдена
         """
         result = await self.session.execute(
-            delete(UserRole).where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+            delete(UserRole).where(
+                UserRole.user_id == user_id, UserRole.role_id == role_id
+            )
         )
         await self.session.commit()
         return result.rowcount > 0
@@ -200,8 +213,9 @@ class RoleRepository:
             True если роль назначена пользователям, False в противном случае
         """
         result = await self.session.execute(
-            select(func.count()).select_from(UserRole).where(UserRole.role_id == role_id)
+            select(func.count())
+            .select_from(UserRole)
+            .where(UserRole.role_id == role_id)
         )
         count = result.scalar() or 0
         return count > 0
-

@@ -1,10 +1,9 @@
 """Репозиторий для операций с историей входов в базе данных."""
 from uuid import UUID
 
+from models.role import LoginHistory
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from models.role import LoginHistory
 
 
 class LoginHistoryRepository:
@@ -20,7 +19,10 @@ class LoginHistoryRepository:
         self.session = session
 
     async def create(
-        self, user_id: UUID, ip_address: str | None = None, user_agent: str | None = None
+        self,
+        user_id: UUID,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> LoginHistory:
         """
         Создать запись истории входа.
@@ -33,13 +35,17 @@ class LoginHistoryRepository:
         Returns:
             Созданный объект LoginHistory
         """
-        login_history = LoginHistory(user_id=user_id, ip_address=ip_address, user_agent=user_agent)
+        login_history = LoginHistory(
+            user_id=user_id, ip_address=ip_address, user_agent=user_agent
+        )
         self.session.add(login_history)
         await self.session.commit()
         await self.session.refresh(login_history)
         return login_history
 
-    async def get_by_user_id(self, user_id: UUID, page: int = 1, size: int = 10) -> tuple[list[LoginHistory], int]:
+    async def get_by_user_id(
+        self, user_id: UUID, page: int = 1, size: int = 10
+    ) -> tuple[list[LoginHistory], int]:
         """
         Получить историю входов пользователя с пагинацией.
 
@@ -53,7 +59,9 @@ class LoginHistoryRepository:
         """
         # Получаем общее количество
         count_result = await self.session.execute(
-            select(func.count()).select_from(LoginHistory).where(LoginHistory.user_id == user_id)
+            select(func.count())
+            .select_from(LoginHistory)
+            .where(LoginHistory.user_id == user_id)
         )
         total = count_result.scalar() or 0
 
@@ -69,4 +77,3 @@ class LoginHistoryRepository:
         items = list(result.scalars().all())
 
         return items, total
-

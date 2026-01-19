@@ -15,7 +15,9 @@ class RoleCreate(BaseModel):
 class RoleUpdate(BaseModel):
     """Схема для обновления роли."""
 
-    name: str | None = Field(None, min_length=3, max_length=50, description='Название роли')
+    name: str | None = Field(
+        None, min_length=3, max_length=50, description='Название роли'
+    )
     description: str | None = Field(None, max_length=500, description='Описание роли')
 
 
@@ -53,9 +55,14 @@ class AssignRoleResponse(BaseModel):
 class CheckPermissionRequest(BaseModel):
     """Схема запроса на проверку разрешения."""
 
-    user_id: UUID | None = Field(None, description='ID пользователя (если не указан, используется текущий пользователь)')
+    user_id: UUID | None = Field(
+        None,
+        description='ID пользователя (если не указан, используется текущий пользователь)',
+    )
     required_role: str | None = Field(None, description='Требуемое название роли')
-    required_permission: str | None = Field(None, description='Требуемое название разрешения')
+    required_permission: str | None = Field(
+        None, description='Требуемое название разрешения'
+    )
 
 
 class CheckPermissionResponse(BaseModel):
@@ -64,4 +71,3 @@ class CheckPermissionResponse(BaseModel):
     has_permission: bool
     user_id: UUID
     roles: list[str]
-

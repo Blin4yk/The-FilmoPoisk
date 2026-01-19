@@ -1,6 +1,4 @@
 from http import HTTPStatus
-
-from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import Optional
 
 from api.v1.dependencies.auth import get_current_user_optional
@@ -9,6 +7,7 @@ from api.v1.scheme.film_scheme import FilmDetail, FilmShort
 from db.interface.interfaces import AbstractCache
 from db.postgres import get_db
 from db.redis import get_cache
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from models.user import User
 from services.film import FilmService, get_film_service
 from services.permission import PermissionService
@@ -16,14 +15,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix='/api/v1/films', tags=['films'])
 
+
 class FilmListParams(PaginationParams):
     """Параметры для списка фильмов с фильтром по жанру"""
+
     def __init__(
         self,
-        sort: str = Query("-imdb_rating", description="Sort by field (- for DESC)"),
-        page: int = Query(1, ge=1, description="Page number"),
-        size: int = Query(50, ge=1, le=100, description="Page size"),
-        genre: Optional[str] = Query(None, description="Filter by genre ID")
+        sort: str = Query('-imdb_rating', description='Sort by field (- for DESC)'),
+        page: int = Query(1, ge=1, description='Page number'),
+        size: int = Query(50, ge=1, le=100, description='Page size'),
+        genre: Optional[str] = Query(None, description='Filter by genre ID'),
     ):
         super().__init__(sort, page, size)
         self.genre = genre
@@ -31,12 +32,13 @@ class FilmListParams(PaginationParams):
 
 class FilmSearchParams(PaginationParams):
     """Параметры для поиска фильмов"""
+
     def __init__(
         self,
-        query: str = Query(..., min_length=3, description="Search query"),
-        sort: str = Query("-imdb_rating", description="Sort by field (- for DESC)"),
-        page: int = Query(1, ge=1, description="Page number"),
-        size: int = Query(50, ge=1, le=100, description="Page size")
+        query: str = Query(..., min_length=3, description='Search query'),
+        sort: str = Query('-imdb_rating', description='Sort by field (- for DESC)'),
+        page: int = Query(1, ge=1, description='Page number'),
+        size: int = Query(50, ge=1, le=100, description='Page size'),
     ):
         super().__init__(sort, page, size)
         self.query = query
@@ -74,7 +76,9 @@ async def film_details(
     Raises:
         HTTPException: 404 если фильм не найден или 403 если доступ запрещен
     """
-    film = await film_service.get_by_id(film_id, user=current_user, permission_service=permission_service)
+    film = await film_service.get_by_id(
+        film_id, user=current_user, permission_service=permission_service
+    )
     if not film:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -84,7 +88,7 @@ async def film_details(
     return film
 
 
-@router.get("/", response_model=list[FilmShort])
+@router.get('/', response_model=list[FilmShort])
 async def films_list(
     pagination: FilmListParams = Depends(),
     film_service: FilmService = Depends(get_film_service),
@@ -111,12 +115,14 @@ async def films_list(
     )
 
     if not films:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='Фильмы не найдены')
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail='Фильмы не найдены'
+        )
 
     return films
 
 
-@router.get("/search/", response_model=list[FilmShort])
+@router.get('/search/', response_model=list[FilmShort])
 async def films_search(
     search_params: FilmSearchParams = Depends(),
     film_service: FilmService = Depends(get_film_service),
@@ -133,7 +139,7 @@ async def films_search(
     - /api/v1/films/search/?query=action
     """
     if not search_params.query.strip():
-        raise HTTPException(status_code=400, detail="Запрос не может быть пустым")
+        raise HTTPException(status_code=400, detail='Запрос не может быть пустым')
 
     return await film_service.search_films(
         query=search_params.query,
