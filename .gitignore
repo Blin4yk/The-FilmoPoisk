@@ -6,4 +6,3 @@ docker-compose-local.yaml
 *.xml
 *.idea
 *.rdb
-ARCHITECTURE.md
