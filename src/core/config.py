@@ -38,6 +38,29 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(15, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
     refresh_token_expire_days: int = Field(7, alias='REFRESH_TOKEN_EXPIRE_DAYS')
 
+    # Auth service integration
+    auth_service_url: str = Field('http://localhost:8000', alias='AUTH_SERVICE_URL')
+
+    # Jaeger tracing
+    jaeger_agent_host: str = Field('jaeger', alias='JAEGER_AGENT_HOST')
+    jaeger_agent_port: int = Field(6831, alias='JAEGER_AGENT_PORT')
+    jaeger_service_name: str = Field('filmp Poisk', alias='JAEGER_SERVICE_NAME')
+
+    # Rate limiting
+    rate_limit_per_minute: int = Field(60, alias='RATE_LIMIT_PER_MINUTE')
+    rate_limit_per_hour: int = Field(1000, alias='RATE_LIMIT_PER_HOUR')
+
+    # OAuth providers
+    oauth_yandex_client_id: str = Field('edb10e89ccd24051a7c56aa1bd3af62a', alias='OAUTH_YANDEX_CLIENT_ID')
+    oauth_yandex_client_secret: str = Field('72f8f5fba935488c9d9b0d8b0f49d27d', alias='OAUTH_YANDEX_CLIENT_SECRET')
+
+    oauth_redirect_uri: str = Field(
+        'http://localhost:8000/api/v1/auth/oauth/callback', alias='OAUTH_REDIRECT_URI'
+    )
+
+    AUTHORIZATION_BASE_URL: str = Field('', alias="https://oauth.yandex.ru/authorize")
+    TOKEN_URL: str = Field('', alias="https://oauth.yandex.ru/token")
+
     @property
     def base_dir(self) -> str:
         return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

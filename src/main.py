@@ -3,15 +3,19 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator
 
-from api.v1 import auth, films, roles
-from core.config import settings
-from db import elastic, postgres, redis
 from elasticsearch import AsyncElasticsearch
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+
+from api.v1 import auth, films, roles
+from core.config import settings
+from core.tracing import setup_tracing
+from db import elastic, postgres, redis
+from middleware.rate_limit import RateLimitMiddleware
+from middleware.request_id import RequestIDMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +24,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     redis.redis = Redis(host=settings.redis_host, port=settings.redis_port)
     elastic.es = AsyncElasticsearch(
-        hosts=[f'http://{settings.elastic_host}:{settings.elastic_port}'],
+        hosts=[f'https://{settings.elastic_host}:{settings.elastic_port}'],
         headers={'Accept': 'application/vnd.elasticsearch+json; compatible-with=8'},
     )
 
@@ -62,6 +66,7 @@ app = FastAPI(
     openapi_url='/api/openapi.json',
     default_response_class=ORJSONResponse,
     allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=['*'],
     allow_headers=['*'],
     lifespan=lifespan,
@@ -70,6 +75,14 @@ app = FastAPI(
         'docExpansion': 'none',
     },
 )
+
+# Добавляем middleware
+app.add_middleware(RequestIDMiddleware)
+# Rate limiting middleware добавляется с None cache, будет использоваться redis из модуля
+app.add_middleware(RateLimitMiddleware)
+
+# Настраиваем трассировку
+setup_tracing(app)
 
 app.include_router(auth.router)
 app.include_router(roles.router)

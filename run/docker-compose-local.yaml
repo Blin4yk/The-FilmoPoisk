@@ -49,6 +49,15 @@ services:
     depends_on:
       - elasticsearch-with-dump
 
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    ports:
+      - "16686:16686"  # Jaeger UI
+    restart: unless-stopped
+
   fastapi:
     build:
       context: ..
@@ -63,6 +72,7 @@ services:
       - kibana-with-dump
       - elasticsearch-with-dump
       - redis
+      - jaeger
     environment:
       - ENVIRONMENT=development
       - PYTHONPATH=/app

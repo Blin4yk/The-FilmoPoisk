@@ -1,5 +1,11 @@
 """API для аунтентификации и авторизации"""
 
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from requests_oauthlib import OAuth2Session
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from api.v1.dependencies.auth import get_auth_service, get_current_user
 from api.v1.dependencies.dependency import PaginationParams
 from api.v1.scheme.auth_scheme import (
@@ -12,9 +18,11 @@ from api.v1.scheme.auth_scheme import (
     UserResponse,
     UserUpdate,
 )
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from core.config import settings
+from db.postgres import get_db
 from models.user import User
 from services.auth import AuthService
+from services.oauth import OAuthService, register_yandex_user
 
 router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 
@@ -23,9 +31,9 @@ class LoginHistoryParams(PaginationParams):
     """Параметры пагинации для истории входов."""
 
     def __init__(
-        self,
-        page: int = Query(1, ge=1, description='Номер страницы'),
-        size: int = Query(10, ge=1, le=100, description='Размер страницы'),
+            self,
+            page: int = Query(1, ge=1, description='Номер страницы'),
+            size: int = Query(10, ge=1, le=100, description='Размер страницы'),
     ):
         """Инициализация параметров пагинации."""
         super().__init__(sort='', page=page, size=size)
@@ -35,8 +43,8 @@ class LoginHistoryParams(PaginationParams):
     '/register', response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
 async def register(
-    user_data: UserRegister,
-    auth_service: AuthService = Depends(get_auth_service),
+        user_data: UserRegister,
+        auth_service: AuthService = Depends(get_auth_service),
 ) -> UserResponse:
     """
     Регистрация нового пользователя.
@@ -54,19 +62,69 @@ async def register(
     try:
         user = await auth_service.register_user(user_data)
         return UserResponse.model_validate(user)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(e),
-        ) from e
+    except Exception as e:
+        raise HTTPException(e)
+
+
+@router.get("/authorize", summary="Получить ссылку на авторизацию Яндекс")
+async def authorize():
+    """
+    Получение ссылки для авторизации через Яндекс.
+
+    **return**: Ссылка на авторизацию в Яндексе
+    """
+    try:
+        oauth = OAuth2Session('0222595981a44b27bc5f555591cc7f4d', redirect_uri='https://oauth.yandex.ru/verification_code')
+        authorization_url, _ = oauth.authorization_url('https://oauth.yandex.ru/authorize')
+        return {"authorization_url": authorization_url}
+    except Exception:
+        raise HTTPException(status_code=500, detail="Ошибка получения ссылки")
+
+
+@router.post("/callback", summary="Обработка кода и добавление в базу данных пользователя")
+async def callback(
+        response: Response,
+        code: str = Query(..., description="Код подтверждения из Яндекса"),
+        password: str = Query(..., description="Пароль")
+):
+    """
+    Обработка кода подтверждения и регистрация пользователя через Яндекс.
+    Параметры:
+    - **response**: Объект ответа для установки access-токена в куки
+    - **code**: Код подтверждения из Яндекса
+    - **password**: Пароль для создания учетной записи
+    **return**: Access-токен в ответе и куки
+    """
+    try:
+        oauth = OAuth2Session("0222595981a44b27bc5f555591cc7f4d", redirect_uri="https://oauth.yandex.ru/verification_code")
+        print(oauth)
+        token = oauth.fetch_token('https://oauth.yandex.ru/token', client_secret="54514d26b9e9446baf3e92401e204049", code=code)
+        print(token)
+        access_token = token.get("access_token")
+        print(access_token)
+
+        # Устанавливаем access_token в куки
+        response.set_cookie(
+            key="yandex_access_token",
+            value=access_token,
+            httponly=True,
+        )
+
+        print(response.headers)
+
+        await register_yandex_user(access_token, password)
+
+        return {"access_token": access_token}
+    except Exception:
+        raise HTTPException(status_code=400, detail="Получите код")
 
 
 @router.post('/login', response_model=TokenResponse)
 async def login(
-    response: Response,
-    credentials: UserLogin,
-    request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
+        response: Response,
+        credentials: UserLogin,
+        request: Request,
+        auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """
     Вход пользователя и получение JWT токенов.
@@ -130,9 +188,9 @@ async def login(
 
 @router.post('/refresh', response_model=TokenResponse)
 async def refresh_token(
-    request: Request,
-    response: Response,
-    auth_service: AuthService = Depends(get_auth_service),
+        request: Request,
+        response: Response,
+        auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """
     Обновить access токен с помощью refresh токена.
@@ -193,9 +251,9 @@ async def refresh_token(
 
 @router.post('/logout', response_model=MessageResponse)
 async def logout(
-    request: Request,
-    response: Response,
-    auth_service: AuthService = Depends(get_auth_service),
+        request: Request,
+        response: Response,
+        auth_service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
     """
     Выход пользователя из системы путем отзыва refresh токена.
@@ -237,9 +295,9 @@ async def logout(
 
 @router.post('/logout-all', response_model=MessageResponse)
 async def logout_all(
-    response: Response,
-    current_user: User = Depends(get_current_user),
-    auth_service: AuthService = Depends(get_auth_service),
+        response: Response,
+        current_user: User = Depends(get_current_user),
+        auth_service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
     """
     Выход пользователя из всех устройств.
@@ -263,9 +321,9 @@ async def logout_all(
 
 @router.patch('/profile', response_model=UserResponse)
 async def update_profile(
-    update_data: UserUpdate,
-    current_user: User = Depends(get_current_user),
-    auth_service: AuthService = Depends(get_auth_service),
+        update_data: UserUpdate,
+        current_user: User = Depends(get_current_user),
+        auth_service: AuthService = Depends(get_auth_service),
 ) -> UserResponse:
     """
     Обновить профиль пользователя (логин и/или пароль).
@@ -306,9 +364,9 @@ async def update_profile(
 
 @router.get('/login-history', response_model=LoginHistoryListResponse)
 async def get_login_history(
-    pagination: LoginHistoryParams = Depends(),
-    current_user: User = Depends(get_current_user),
-    auth_service: AuthService = Depends(get_auth_service),
+        pagination: LoginHistoryParams = Depends(),
+        current_user: User = Depends(get_current_user),
+        auth_service: AuthService = Depends(get_auth_service),
 ) -> LoginHistoryListResponse:
     """
     Получить историю входов текущего пользователя.
@@ -338,3 +396,95 @@ async def get_login_history(
         size=pagination.size,
         pages=pages,
     )
+
+
+@router.get('/verify', response_model=UserResponse)
+async def verify_token(
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    """
+    Проверить токен и вернуть информацию о пользователе.
+    Используется другими сервисами для проверки токена.
+
+    Args:
+        request: FastAPI запрос (для получения токена)
+        db: Сессия базы данных
+
+    Returns:
+        Информация о пользователе
+
+    Raises:
+        HTTPException: Если токен невалиден
+    """
+    # Получаем токен из заголовка Authorization
+    authorization = request.headers.get('Authorization')
+    if not authorization or not authorization.startswith('Bearer '):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Токен не предоставлен',
+        )
+
+    token = authorization.split(' ')[1]
+
+    # Проверяем токен через JWT сервис
+    from core.jwt import jwt_service
+
+    payload = jwt_service.verify_token(token, token_type='access')
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Невалидный токен',
+        )
+
+    user_id_str = payload.get('sub')
+    if not user_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Невалидный токен',
+        )
+
+    user_id = UUID(user_id_str)
+
+    # Получаем пользователя из базы данных
+    from db.repositories.user_repository import UserRepository
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Пользователь не найден',
+        )
+    return UserResponse.model_validate(user)
+
+
+@router.get('/users/{user_id}', response_model=UserResponse)
+async def get_user_info(
+        user_id: UUID,
+        db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    """
+    Получить информацию о пользователе по ID.
+    Используется другими сервисами для получения информации о пользователе.
+
+    Args:
+        user_id: UUID пользователя
+        db: Сессия базы данных
+
+    Returns:
+        Информация о пользователе
+
+    Raises:
+        HTTPException: Если пользователь не найден
+    """
+    from db.repositories.user_repository import UserRepository
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Пользователь не найден',
+        )
+    return UserResponse.model_validate(user)
