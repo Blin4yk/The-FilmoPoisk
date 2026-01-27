@@ -51,15 +51,15 @@ class Settings(BaseSettings):
     rate_limit_per_hour: int = Field(1000, alias='RATE_LIMIT_PER_HOUR')
 
     # OAuth providers
-    oauth_yandex_client_id: str = Field('edb10e89ccd24051a7c56aa1bd3af62a', alias='OAUTH_YANDEX_CLIENT_ID')
-    oauth_yandex_client_secret: str = Field('72f8f5fba935488c9d9b0d8b0f49d27d', alias='OAUTH_YANDEX_CLIENT_SECRET')
+    oauth_yandex_client_id: str = Field('secret_client_id', alias='OAUTH_YANDEX_CLIENT_ID')
+    oauth_yandex_client_secret: str = Field('client_secret_key', alias='OAUTH_YANDEX_CLIENT_SECRET')
 
     oauth_redirect_uri: str = Field(
-        'http://localhost:8000/api/v1/auth/oauth/callback', alias='OAUTH_REDIRECT_URI'
+        'https://oauth.yandex.ru/verification_code', alias='OAUTH_REDIRECT_URI'
     )
 
-    AUTHORIZATION_BASE_URL: str = Field('', alias="https://oauth.yandex.ru/authorize")
-    TOKEN_URL: str = Field('', alias="https://oauth.yandex.ru/token")
+    AUTHORIZATION_BASE_URL: str = Field('https://oauth.yandex.ru/authorize', alias="AUTHORIZATION_BASE_URL")
+    TOKEN_URL: str = Field('https://oauth.yandex.ru/token', alias="TOKEN_URL")
 
     @property
     def base_dir(self) -> str:

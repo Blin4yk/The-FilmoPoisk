@@ -27,20 +27,19 @@ def jwt_token(token: str):
     jwt_url = "https://login.yandex.ru/info?format=jwt"
     headers = {"Authorization": f"OAuth {token}"}
     response = requests.get(jwt_url, headers=headers)
-    print(response.text)
-    print(jwt_token.__name__)
+
     return response.text
 
 
 def user_info(jwt_token: str):
-    payload = jwt.decode(jwt_token, '54514d26b9e9446baf3e92401e204049', algorithms=["HS256"])
-    print(payload)
+    payload = jwt.decode(jwt_token, settings.oauth_yandex_client_secret, algorithms=["HS256"])
+
     dict_info = {
         "display_name": payload["display_name"],
         "email": payload["email"],
         "exp": payload["exp"],
     }
-    print(dict_info)
+
     return dict_info
 
 async def register_yandex_user(access_token: str, password: str):
@@ -50,10 +49,9 @@ async def register_yandex_user(access_token: str, password: str):
         email = user_data["email"]
         username = user_data["display_name"]
 
-        print(email)
+
         exiting_user = await user_repo.get_by_email(email=email)
-        print("ДОШЛО")
-        print(exiting_user)
+
         if exiting_user:
             raise HTTPException(status_code=409, detail="Email already registered")
         hashed_password = get_password_hash(password)

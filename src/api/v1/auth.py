@@ -74,8 +74,8 @@ async def authorize():
     **return**: Ссылка на авторизацию в Яндексе
     """
     try:
-        oauth = OAuth2Session('0222595981a44b27bc5f555591cc7f4d', redirect_uri='https://oauth.yandex.ru/verification_code')
-        authorization_url, _ = oauth.authorization_url('https://oauth.yandex.ru/authorize')
+        oauth = OAuth2Session(settings.oauth_yandex_client_id, redirect_uri=settings.oauth_yandex_client_secret)
+        authorization_url, _ = oauth.authorization_url(settings.AUTHORIZATION_BASE_URL)
         return {"authorization_url": authorization_url}
     except Exception:
         raise HTTPException(status_code=500, detail="Ошибка получения ссылки")
@@ -96,9 +96,9 @@ async def callback(
     **return**: Access-токен в ответе и куки
     """
     try:
-        oauth = OAuth2Session("0222595981a44b27bc5f555591cc7f4d", redirect_uri="https://oauth.yandex.ru/verification_code")
+        oauth = OAuth2Session(settings.oauth_yandex_client_id, redirect_uri=settings.oauth_yandex_client_secret)
         print(oauth)
-        token = oauth.fetch_token('https://oauth.yandex.ru/token', client_secret="54514d26b9e9446baf3e92401e204049", code=code)
+        token = oauth.fetch_token(settings.TOKEN_URL, client_secret=settings.oauth_yandex_client_secret, code=code)
         print(token)
         access_token = token.get("access_token")
         print(access_token)
