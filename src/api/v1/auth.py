@@ -97,11 +97,9 @@ async def callback(
     """
     try:
         oauth = OAuth2Session(settings.oauth_yandex_client_id, redirect_uri=settings.oauth_yandex_client_secret)
-        print(oauth)
         token = oauth.fetch_token(settings.TOKEN_URL, client_secret=settings.oauth_yandex_client_secret, code=code)
-        print(token)
         access_token = token.get("access_token")
-        print(access_token)
+
 
         # Устанавливаем access_token в куки
         response.set_cookie(
@@ -110,7 +108,6 @@ async def callback(
             httponly=True,
         )
 
-        print(response.headers)
 
         await register_yandex_user(access_token, password)
 

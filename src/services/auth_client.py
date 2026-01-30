@@ -1,148 +1,103 @@
-"""HTTP клиент для интеграции с Auth-сервисом с поддержкой graceful degradation."""
-import logging
-from typing import Any
-from uuid import UUID
+"""Универсальная OAuth реализация по аналогии со статьей Мигеля Гринберга"""
 
+from abc import ABC, abstractmethod
+import aiohttp
+from urllib.parse import urlencode
 from core.config import settings
 
 
-logger = logging.getLogger(__name__)
+class OAuthSignIn(ABC):
+    """Абстрактный базовый класс для OAuth провайдеров (аналог из статьи)"""
 
+    def __init__(self):
+        self.provider_name = self.__class__.__name__.replace('SignIn', '').lower()
+        credentials = self._get_credentials()
+        self.client_id = credentials.get('id')
+        self.client_secret = credentials.get('secret')
 
-class AuthServiceClient:
-    """HTTP клиент для взаимодействия с Auth-сервисом (SRP - только работа с Auth API)."""
+    def _get_credentials(self) -> dict[str, str]:
+        """Получить credentials из настроек (аналог из статьи)"""
+        # В settings можно хранить так же, как в статье:
+        # OAUTH_CREDENTIALS = {
+        #     'yandex': {'id': '...', 'secret': '...'},
+        #     'google': {'id': '...', 'secret': '...'}
+        # }
+        return getattr(settings, 'oauth_credentials', {}).get(self.provider_name, {})
 
-    def __init__(self, base_url: str | None = None, timeout: float = 5.0):
+    @abstractmethod
+    async def authorize(self, callback_url: str) -> str:
+        """Получить URL для перенаправления на авторизацию (аналог authorize())"""
+        ...
+
+    @abstractmethod
+    async def callback(self, callback_url: str, **kwargs) -> tuple[str, str | None, str | None]:
         """
-        Инициализация клиента Auth-сервиса.
-
-        Args:
-            base_url: Базовый URL Auth-сервиса. Если None, используется из настроек.
-            timeout: Таймаут запросов в секундах
-        """
-        self.base_url = base_url or getattr(
-            settings, 'auth_service_url', 'http://localhost:8000'
-        )
-        self.http_client = BaseHTTPClient(self.base_url, timeout)
-
-    async def verify_token(
-        self, token: str, request_id: str | None = None
-    ) -> dict[str, Any] | None:
-        """
-        Проверить токен через Auth-сервис.
-
-        Args:
-            token: JWT токен для проверки
-            request_id: ID запроса для трассировки
+        Обработать callback от провайдера (аналог callback()).
 
         Returns:
-            Словарь с данными пользователя или None при ошибке/недоступности сервиса
+            Tuple[social_id, email, username]
         """
-        headers = {}
-        if request_id:
-            headers['x-request-id'] = request_id
-        headers['Authorization'] = f'Bearer {token}'
+        ...
 
-        try:
-            response = await self.http_client.get('/api/v1/auth/verify', headers=headers)
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 401:
-                logger.warning('Токен невалиден')
-                return None
-            else:
-                logger.warning(
-                    f'Неожиданный статус от Auth-сервиса: {response.status_code}'
-                )
-                return None
-        except (HTTPClientTimeoutError, HTTPClientConnectionError):
-            # Graceful degradation - возвращаем None вместо исключения
-            return None
-        except HTTPClientError as e:
-            logger.error(f'Ошибка при обращении к Auth-сервису: {e}')
-            return None
 
-    async def get_user_info(
-        self, user_id: UUID, request_id: str | None = None
-    ) -> dict[str, Any] | None:
-        """
-        Получить информацию о пользователе.
+class YandexSignIn(OAuthSignIn):
+    """Реализация OAuth для Яндекс (аналог FacebookSignIn/TwitterSignIn из статьи)"""
 
-        Args:
-            user_id: UUID пользователя
-            request_id: ID запроса для трассировки
+    def __init__(self):
+        super().__init__()
+        self.authorize_url = "https://oauth.yandex.ru/authorize"
+        self.token_url = "https://oauth.yandex.ru/token"
+        self.user_info_url = "https://login.yandex.ru/info"
 
-        Returns:
-            Словарь с данными пользователя или None при ошибке/недоступности сервиса
-        """
-        headers = {}
-        if request_id:
-            headers['x-request-id'] = request_id
+    async def authorize(self, callback_url: str) -> str:
+        """Получить URL для авторизации в Яндекс"""
+        params = {
+            "client_id": self.client_id,
+            "response_type": "code",
+            "redirect_uri": callback_url,
+            "force_confirm": "true",  # Всегда запрашивать подтверждение
+        }
 
-        try:
-            response = await self.http_client.get(
-                f'/api/v1/auth/users/{user_id}', headers=headers
-            )
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 404:
-                logger.warning(f'Пользователь {user_id} не найден')
-                return None
-            else:
-                logger.warning(
-                    f'Неожиданный статус от Auth-сервиса: {response.status_code}'
-                )
-                return None
-        except (HTTPClientTimeoutError, HTTPClientConnectionError):
-            # Graceful degradation
-            return None
-        except HTTPClientError as e:
-            logger.error(f'Ошибка при обращении к Auth-сервису: {e}')
-            return None
+        return f"{self.authorize_url}?{urlencode(params)}"
 
-    async def check_permission(
-        self,
-        user_id: UUID,
-        permission: str,
-        request_id: str | None = None,
-    ) -> bool:
-        """
-        Проверить разрешение пользователя.
+    async def callback(self, callback_url: str, **kwargs) -> tuple[str, str | None, str | None]:
+        """Обработать callback от Яндекс"""
+        code = kwargs.get('code')
+        if not code:
+            raise ValueError("Код авторизации не предоставлен")
 
-        Args:
-            user_id: UUID пользователя
-            permission: Название разрешения
-            request_id: ID запроса для трассировки
+        # Получаем access token
+        token_data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+        }
 
-        Returns:
-            True если разрешение есть, False если нет или сервис недоступен
-        """
-        headers = {}
-        if request_id:
-            headers['x-request-id'] = request_id
+        async with aiohttp.ClientSession() as session:
+            # Получаем access token
+            async with session.post(self.token_url, data=token_data) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(f"Ошибка получения токена: {error_text}")
 
-        try:
-            response = await self.http_client.post(
-                '/api/v1/auth/check-permission',
-                headers=headers,
-                json={'user_id': str(user_id), 'permission': permission},
-            )
-            if response.status_code == 200:
-                result = response.json()
-                return result.get('has_permission', False)
-            else:
-                logger.warning(
-                    f'Неожиданный статус от Auth-сервиса: {response.status_code}'
-                )
-                return False
-        except (HTTPClientTimeoutError, HTTPClientConnectionError):
-            # Graceful degradation - возвращаем False
-            return False
-        except HTTPClientError as e:
-            logger.error(f'Ошибка при обращении к Auth-сервису: {e}')
-            return False
+                token_response = await response.json()
+                access_token = token_response.get("access_token")
 
-    async def close(self):
-        """Закрыть HTTP клиент."""
-        await self.http_client.close()
+                if not access_token:
+                    raise Exception("Access token не получен")
 
+            # Получаем информацию о пользователе
+            headers = {"Authorization": f"OAuth {access_token}"}
+            async with session.get(self.user_info_url, headers=headers) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(f"Ошибка получения информации: {error_text}")
+
+                user_info = await response.json()
+
+                social_id = str(user_info.get("id"))
+                email = user_info.get("default_email")
+                username = user_info.get("login")
+
+                return social_id, email, username
