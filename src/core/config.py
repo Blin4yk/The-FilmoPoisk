@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     AUTHORIZATION_BASE_URL: str = Field('https://oauth.yandex.ru/authorize', alias="AUTHORIZATION_BASE_URL")
     TOKEN_URL: str = Field('https://oauth.yandex.ru/token', alias="TOKEN_URL")
 
+    enable_rate_limit: bool = Field(True, alias='ENABLE_RATE_LIMIT')
+    enable_tracing: bool = Field(True, alias='ENABLE_TRACING')
+
     @property
     def base_dir(self) -> str:
         return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

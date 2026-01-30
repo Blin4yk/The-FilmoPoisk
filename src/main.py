@@ -76,13 +76,15 @@ app = FastAPI(
     },
 )
 
-# Добавляем middleware
-app.add_middleware(RequestIDMiddleware)
-# Rate limiting middleware добавляется с None cache, будет использоваться redis из модуля
-app.add_middleware(RateLimitMiddleware)
+if settings.enable_request_id:
+    app.add_middleware(RequestIDMiddleware)
 
-# Настраиваем трассировку
-setup_tracing(app)
+if settings.enable_rate_limit:
+    app.add_middleware(RateLimitMiddleware)
+
+# Настраиваем трассировку с условием отключения
+if settings.enable_tracing:
+    setup_tracing(app)
 
 app.include_router(auth.router)
 app.include_router(roles.router)
