@@ -74,7 +74,7 @@ async def authorize():
     **return**: Ссылка на авторизацию в Яндексе
     """
     try:
-        oauth = OAuth2Session(settings.oauth_yandex_client_id, redirect_uri=settings.oauth_yandex_client_secret)
+        oauth = OAuth2Session(settings.oauth_yandex_client_id, redirect_uri=settings.oauth_redirect_uri)
         authorization_url, _ = oauth.authorization_url(settings.AUTHORIZATION_BASE_URL)
         return {"authorization_url": authorization_url}
     except Exception:
@@ -96,7 +96,7 @@ async def callback(
     **return**: Access-токен в ответе и куки
     """
     try:
-        oauth = OAuth2Session(settings.oauth_yandex_client_id, redirect_uri=settings.oauth_yandex_client_secret)
+        oauth = OAuth2Session(settings.oauth_yandex_client_id, redirect_uri=settings.oauth_redirect_uri)
         print(oauth)
         token = oauth.fetch_token(settings.TOKEN_URL, client_secret=settings.oauth_yandex_client_secret, code=code)
         print(token)

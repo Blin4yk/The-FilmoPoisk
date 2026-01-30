@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     # Jaeger tracing
     jaeger_agent_host: str = Field('jaeger', alias='JAEGER_AGENT_HOST')
     jaeger_agent_port: int = Field(6831, alias='JAEGER_AGENT_PORT')
-    jaeger_service_name: str = Field('filmp Poisk', alias='JAEGER_SERVICE_NAME')
+    jaeger_service_name: str = Field('filmpo Poisk', alias='JAEGER_SERVICE_NAME')
 
     # Rate limiting
     rate_limit_per_minute: int = Field(60, alias='RATE_LIMIT_PER_MINUTE')
@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     AUTHORIZATION_BASE_URL: str = Field('https://oauth.yandex.ru/authorize', alias="AUTHORIZATION_BASE_URL")
     TOKEN_URL: str = Field('https://oauth.yandex.ru/token', alias="TOKEN_URL")
 
+    enable_request_id: bool = Field(True, alias='ENABLE_REQUEST_ID')
     enable_rate_limit: bool = Field(True, alias='ENABLE_RATE_LIMIT')
     enable_tracing: bool = Field(True, alias='ENABLE_TRACING')
 
