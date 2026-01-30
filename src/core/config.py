@@ -1,11 +1,10 @@
 import os
 from logging import config as logging_config
 
-from core.logger import LOGGING
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from for_me import authorize
+from core.logger import LOGGING
 
 # Применяем настройки логирования
 logging_config.dictConfig(LOGGING)
@@ -51,6 +50,7 @@ class Settings(BaseSettings):
 
     enable_rate_limit: bool = Field(True, alias='ENABLE_RATE_LIMIT')
     enable_tracing: bool = Field(True, alias='ENABLE_TRACING')
+    enable_request_id: bool = Field(True, alias='ENABLE_REQUEST_ID')
 
     @property
     def base_dir(self) -> str:
@@ -70,8 +70,12 @@ class OAuthSettings(BaseSettings):
     AUTHORIZATION_BASE_URL: str = Field('https://oauth.yandex.ru/authorize', alias="AUTHORIZATION_BASE_URL")
     TOKEN_URL: str = Field('https://oauth.yandex.ru/token', alias="TOKEN_URL")
 
-    oauth_credentials = {
-        'yandex': {'id': oauth_yandex_client_id, 'secret': oauth_yandex_client_secret, 'redirect_uri': oauth_redirect_uri},
+    oauth_credentials: dict = {
+        'yandex': {
+            'id': Field('secret_client_id', alias='OAUTH_YANDEX_CLIENT_ID'),
+            'secret': Field('client_secret_key', alias='OAUTH_YANDEX_CLIENT_SECRET'),
+            'redirect_uri': Field('https://oauth.yandex.ru/verification_code', alias='OAUTH_REDIRECT_URI')
+        }
     }
 
     @property
