@@ -1,9 +1,10 @@
 import os
 from logging import config as logging_config
 
-from core.logger import LOGGING
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from core.logger import LOGGING
 
 # Применяем настройки логирования
 logging_config.dictConfig(LOGGING)
@@ -38,22 +39,30 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(15, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
     refresh_token_expire_days: int = Field(7, alias='REFRESH_TOKEN_EXPIRE_DAYS')
 
-    # Auth service integration
-    auth_service_url: str = Field('http://localhost:8000', alias='AUTH_SERVICE_URL')
-
-    # Jaeger tracing
+    # Jaeger
     jaeger_agent_host: str = Field('jaeger', alias='JAEGER_AGENT_HOST')
     jaeger_agent_port: int = Field(6831, alias='JAEGER_AGENT_PORT')
-    jaeger_service_name: str = Field('filmpo Poisk', alias='JAEGER_SERVICE_NAME')
+    jaeger_service_name: str = Field('filmp Poisk', alias='JAEGER_SERVICE_NAME')
 
-    # Rate limiting
+    # Rate
     rate_limit_per_minute: int = Field(60, alias='RATE_LIMIT_PER_MINUTE')
     rate_limit_per_hour: int = Field(1000, alias='RATE_LIMIT_PER_HOUR')
 
-    # OAuth providers
+    enable_rate_limit: bool = Field(True, alias='ENABLE_RATE_LIMIT')
+    enable_tracing: bool = Field(True, alias='ENABLE_TRACING')
+    enable_request_id: bool = Field(True, alias='ENABLE_REQUEST_ID')
+
+    @property
+    def base_dir(self) -> str:
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+class OAuthSettings(BaseSettings):
+    """Настройки для авторизации"""
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+
     oauth_yandex_client_id: str = Field('secret_client_id', alias='OAUTH_YANDEX_CLIENT_ID')
     oauth_yandex_client_secret: str = Field('client_secret_key', alias='OAUTH_YANDEX_CLIENT_SECRET')
-
     oauth_redirect_uri: str = Field(
         'https://oauth.yandex.ru/verification_code', alias='OAUTH_REDIRECT_URI'
     )
@@ -61,13 +70,19 @@ class Settings(BaseSettings):
     AUTHORIZATION_BASE_URL: str = Field('https://oauth.yandex.ru/authorize', alias="AUTHORIZATION_BASE_URL")
     TOKEN_URL: str = Field('https://oauth.yandex.ru/token', alias="TOKEN_URL")
 
-    enable_request_id: bool = Field(True, alias='ENABLE_REQUEST_ID')
-    enable_rate_limit: bool = Field(True, alias='ENABLE_RATE_LIMIT')
-    enable_tracing: bool = Field(True, alias='ENABLE_TRACING')
+    oauth_credentials: dict = {
+        'yandex': {
+            'id': Field('secret_client_id', alias='OAUTH_YANDEX_CLIENT_ID'),
+            'secret': Field('client_secret_key', alias='OAUTH_YANDEX_CLIENT_SECRET'),
+            'redirect_uri': Field('https://oauth.yandex.ru/verification_code', alias='OAUTH_REDIRECT_URI')
+        }
+    }
 
     @property
     def base_dir(self) -> str:
         return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
+oauth_settings = OAuthSettings()
 
 settings = Settings()

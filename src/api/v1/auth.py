@@ -3,7 +3,6 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from requests_oauthlib import OAuth2Session
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.v1.dependencies.auth import get_auth_service, get_current_user
@@ -18,11 +17,12 @@ from api.v1.scheme.auth_scheme import (
     UserResponse,
     UserUpdate,
 )
-from core.config import settings
+from core.config import oauth_settings
 from db.postgres import get_db
+from services.auth_client import OAuthProviderFactory, register_oauth_user
+
 from models.user import User
 from services.auth import AuthService
-from services.oauth import OAuthService, register_yandex_user
 
 router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 
@@ -66,57 +66,116 @@ async def register(
         raise HTTPException(e)
 
 
-@router.get("/authorize", summary="Получить ссылку на авторизацию Яндекс")
-async def authorize():
+@router.get("/oauth/providers", summary="Получить список доступных OAuth провайдеров")
+async def get_available_providers():
     """
-    Получение ссылки для авторизации через Яндекс.
+    Получение списка доступных OAuth провайдеров.
 
-    **return**: Ссылка на авторизацию в Яндексе
+    Returns:
+        Список провайдеров
     """
-    try:
-        oauth = OAuth2Session(settings.oauth_yandex_client_id, redirect_uri=settings.oauth_redirect_uri)
-        authorization_url, _ = oauth.authorization_url(settings.AUTHORIZATION_BASE_URL)
-        return {"authorization_url": authorization_url}
-    except Exception:
-        raise HTTPException(status_code=500, detail="Ошибка получения ссылки")
+    return {
+        "providers": OAuthProviderFactory.get_available_providers()
+    }
 
-
-@router.post("/callback", summary="Обработка кода и добавление в базу данных пользователя")
-async def callback(
-        response: Response,
-        code: str = Query(..., description="Код подтверждения из Яндекса"),
-        password: str = Query(..., description="Пароль")
+@router.get("/oauth/{provider}/authorize", summary="Получить ссылку на авторизацию OAuth провайдера")
+async def authorize(
+        provider: str,
 ):
     """
-    Обработка кода подтверждения и регистрация пользователя через Яндекс.
-    Параметры:
-    - **response**: Объект ответа для установки access-токена в куки
-    - **code**: Код подтверждения из Яндекса
-    - **password**: Пароль для создания учетной записи
-    **return**: Access-токен в ответе и куки
+    Получение ссылки для авторизации через OAuth провайдера.
+
+    Parameters:
+        provider: Имя провайдера (yandex, google, vk и т.д.)
+
+    Returns:
+        Ссылка на авторизацию
     """
     try:
-        oauth = OAuth2Session(settings.oauth_yandex_client_id, redirect_uri=settings.oauth_redirect_uri)
-        print(oauth)
-        token = oauth.fetch_token(settings.TOKEN_URL, client_secret=settings.oauth_yandex_client_secret, code=code)
-        print(token)
-        access_token = token.get("access_token")
-        print(access_token)
+        # Получаем провайдера
+        oauth_provider = OAuthProviderFactory.get_provider(provider)
 
-        # Устанавливаем access_token в куки
-        response.set_cookie(
-            key="yandex_access_token",
-            value=access_token,
-            httponly=True,
+        # Используем redirect_uri из параметров или из настроек
+        final_redirect_uri = oauth_settings.oauth_redirect_uri
+
+        # Получаем URL для авторизации
+        authorization_url = oauth_provider.get_authorization_url(final_redirect_uri)
+
+        return {
+            "provider": provider,
+            "authorization_url": authorization_url,
+            "redirect_uri": final_redirect_uri
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка получения ссылки для авторизации: {str(e)}"
         )
 
-        print(response.headers)
 
-        await register_yandex_user(access_token, password)
+@router.get("/oauth/{provider}/callback", summary="Обработка callback от OAuth провайдера")
+async def callback(
+        provider: str,
+        response: Response,
+        code: str = Query(..., description="Код подтверждения от провайдера"),
+        password: str | None = Query(None, description="Пароль (опционально)"),
+):
+    """
+    Обработка callback от OAuth провайдера и регистрация/авторизация пользователя.
 
-        return {"access_token": access_token}
-    except Exception:
-        raise HTTPException(status_code=400, detail="Получите код")
+    Parameters:
+        provider: Имя провайдера
+        response: Объект ответа
+        code: Код подтверждения
+        password: Пароль для создания учетной записи (опционально)
+
+    Returns:
+        Информация о пользователе и токены
+    """
+    try:
+        # Получаем провайдера
+        oauth_provider = OAuthProviderFactory.get_provider(provider)
+
+        # Используем redirect_uri из параметров или из настроек
+        final_redirect_uri = oauth_settings.oauth_redirect_uri
+
+        # Обмениваем код на токен
+        token_data = await oauth_provider.exchange_code_for_token(code, final_redirect_uri)
+        access_token = token_data["access_token"]
+
+        if not access_token:
+            raise HTTPException(status_code=400, detail="Не удалось получить access token")
+
+        response.set_cookie(
+            key=f"{provider}_access_token",
+            value=access_token,
+        )
+
+        user_data = await oauth_provider.get_user_info(access_token)
+
+
+        is_new_user, user = await register_oauth_user(
+            user_data,
+            password
+        )
+
+
+        return {
+            "provider": provider,
+            "is_new_user": is_new_user,
+            "access_token": access_token,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ошибка обработки callback: {str(e)}"
+        )
 
 
 @router.post('/login', response_model=TokenResponse)

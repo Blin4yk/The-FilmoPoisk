@@ -6,3 +6,4 @@ docker-compose-local.yaml
 *.xml
 *.idea
 *.rdb
+src/for_me.py
