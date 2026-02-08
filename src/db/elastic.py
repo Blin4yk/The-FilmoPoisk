@@ -20,7 +20,7 @@ class ElasticDataStorage(AbstractDataStorage):
 
     async def get_by_id(
         self, index: str = None, id: str = None, **kwargs
-    ) -> dict[str, Any] | None:
+    ) -> dict[str, any] | None:
         """
         Получить документ по ID из индекса
 
@@ -45,12 +45,12 @@ class ElasticDataStorage(AbstractDataStorage):
     async def get_list(
         self,
         index: str = None,
-        query: dict[str, Any] = None,
+        query: dict[str, any] = None,
         sort: list | str = None,
         page: int = 1,
         size: int = 50,
         **kwargs,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, any]]:
         """
         Получить список документов из индекса
 

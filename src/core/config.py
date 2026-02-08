@@ -21,6 +21,25 @@ class Settings(BaseSettings):
     elastic_host: str = Field('elasticsearch-with-dump', alias='ELASTIC_HOST')
     elastic_port: int = Field(9200, alias='ELASTIC_PORT')
 
+    # Kafka (для сбора пользовательских действий)
+    kafka_bootstrap_servers: str = Field(
+        'kafka:9092', alias='KAFKA_BOOTSTRAP_SERVERS'
+    )
+    kafka_user_events_topic: str = Field(
+        'user_events', alias='KAFKA_USER_EVENTS_TOPIC'
+    )
+
+    # ClickHouse (для аналитического хранения пользовательских действий)
+    clickhouse_host: str = Field('clickhouse', alias='CLICKHOUSE_HOST')
+    clickhouse_port: int = Field(8123, alias='CLICKHOUSE_PORT')
+    clickhouse_database: str = Field('analytics', alias='CLICKHOUSE_DATABASE')
+    clickhouse_user: str = Field('default', alias='CLICKHOUSE_USER')
+    # Пустая строка трактуется как отсутствие пароля (для стандартного пользователя default)
+    clickhouse_password: str | None = Field(
+        None,
+        alias='CLICKHOUSE_PASSWORD',
+    )
+
     postgres_host: str = Field('postgres', alias='POSTGRES_HOST')
     postgres_port: int = Field(5432, alias='POSTGRES_PORT')
     postgres_db: str = Field('db', alias='POSTGRES_DB')

@@ -10,10 +10,11 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from api.v1 import auth, films, roles
+from api.v1 import auth, events, films, roles
 from core.config import settings
 from core.tracing import setup_tracing
 from db import elastic, postgres, redis
+from db.kafka import close_kafka_producer, init_kafka_producer
 from middleware.rate_limit import RateLimitMiddleware
 from middleware.request_id import RequestIDMiddleware
 
@@ -27,6 +28,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         hosts=[f'https://{settings.elastic_host}:{settings.elastic_port}'],
         headers={'Accept': 'application/vnd.elasticsearch+json; compatible-with=8'},
     )
+
+    # Инициализируем Kafka продьюсер для отправки пользовательских событий
+    await init_kafka_producer()
 
     # PostgreSQL инициализируется через SQLAlchemy engine в db/postgres.py
     # Проверка подключения с retry логикой (до 5 попыток с интервалом 2 секунды)
@@ -58,6 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await redis.redis.close()
     await elastic.es.close()
     await postgres.engine.dispose()
+    await close_kafka_producer()
 
 
 app = FastAPI(
@@ -89,6 +94,7 @@ if settings.enable_tracing:
 app.include_router(auth.router)
 app.include_router(roles.router)
 app.include_router(films.router)
+app.include_router(events.router)
 
 # Для локальной разработки надо раскомментировать код ниже
 # if __name__ == '__main__':

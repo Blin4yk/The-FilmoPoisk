@@ -3,30 +3,30 @@ from abc import ABC, abstractmethod
 
 
 class AbstractDataStorage(ABC):
-    """Универсальная абстракция для хранилищ данных (принцип D из SOLID)"""
+    """Универсальная абстракция для хранилищ данных."""
 
     @abc.abstractmethod
     async def get_by_id(self, *args, **kwargs):
-        """Получить запись по ID"""
+        """Получить запись по ID."""
         ...
 
     @abc.abstractmethod
     async def get_list(self, *args, **kwargs):
-        """Получить список записей"""
+        """Получить список записей."""
         ...
 
 
 class AbstractCache(ABC):
-    """Универсальная абстракция для кэша (принцип D из SOLID)"""
+    """Универсальная абстракция для кэша."""
 
     @abc.abstractmethod
     async def get(self, *args, **kwargs):
-        """Получить значение из кэша"""
+        """Получить значение из кэша."""
         ...
 
     @abc.abstractmethod
     async def set(self, *args, **kwargs):
-        """Установить значение в кэш"""
+        """Установить значение в кэш."""
         ...
 
     @abc.abstractmethod
@@ -39,52 +39,52 @@ class DataStorage(ABC):
 
     @abstractmethod
     async def connect(self) -> None:
-        """Подключение к хранилищу"""
+        """Подключение к хранилищу."""
         ...
 
     @abstractmethod
     async def disconnect(self) -> None:
-        """Отключение от хранилища"""
+        """Отключение от хранилища."""
         ...
 
     @abstractmethod
     async def health_check(self) -> bool:
-        """Проверка здоровья подключения"""
+        """Проверка здоровья подключения."""
         ...
 
 
 class SearchStorage(DataStorage):
-    """Абстракция для поисковых хранилищ"""
+    """Абстракция для поисковых хранилищ."""
 
     @abstractmethod
     async def search(self, index: str, query: dict[str, any]) -> dict[str, any]:
-        """Поиск документов"""
+        """Поиск документов."""
         ...
 
     @abstractmethod
     async def get(self, index: str, id: str) -> dict[str, any] | None:
-        """Получение документа по ID"""
+        """Получение документа по ID."""
         ...
 
     @abstractmethod
     async def index(
         self, index: str, document: dict[str, any], id: str = None
     ) -> dict[str, any]:
-        """Индексация документа"""
+        """Индексация документа."""
         ...
 
 
 class CacheStorage(DataStorage):
-    """Абстракция для кэш-хранилищ"""
+    """Абстракция для кэш-хранилищ."""
 
     @abstractmethod
     async def get(self, key: str) -> str | None:
-        """Получение значения по ключу"""
+        """Получение значения по ключу."""
         ...
 
     @abstractmethod
     async def set(self, key: str, value: str, expire: int = None) -> None:
-        """Установка значения"""
+        """Установка значения."""
         ...
 
     @abstractmethod
@@ -94,16 +94,16 @@ class CacheStorage(DataStorage):
 
     @abstractmethod
     async def exists(self, key: str) -> bool:
-        """Проверка существования ключа"""
+        """Проверка существования ключа."""
         ...
 
 
 class FilmStorage(ABC):
-    """Абстракция для работы с фильмами (репозиторий)"""
+    """Абстракция для работы с фильмами."""
 
     @abstractmethod
     async def get_film_by_id(self, film_id: str) -> dict[str, any] | None:
-        """Получить фильм по ID"""
+        """Получить фильм по ID."""
         ...
 
     @abstractmethod
@@ -114,38 +114,47 @@ class FilmStorage(ABC):
         page: int = 1,
         size: int = 50,
     ) -> list[dict[str, any]]:
-        """Получить список фильмов с фильтрацией"""
+        """Получить список фильмов с фильтрацией."""
         ...
 
     @abstractmethod
     async def search_films(
         self, query: str, sort: str = '-imdb_rating', page: int = 1, size: int = 50
     ) -> list[dict[str, any]]:
-        """Поиск фильмов"""
+        """Поиск фильмов."""
         ...
 
 
 class CacheService(ABC):
-    """Абстракция для сервиса кэширования"""
+    """Абстракция для сервиса кэширования."""
 
     @abstractmethod
     async def get_film(self, film_id: str) -> str | None:
-        """Получить фильм из кэша"""
+        """Получить фильм из кэша."""
         ...
 
     @abstractmethod
     async def set_film(self, film_id: str, film_data: str, expire: int = 300) -> None:
-        """Сохранить фильм в кэш"""
+        """Сохранить фильм в кэш."""
         ...
 
     @abstractmethod
     async def get_films_list(self, cache_key: str) -> str | None:
-        """Получить список фильмов из кэша"""
+        """Получить список фильмов из кэша."""
         ...
 
     @abstractmethod
     async def set_films_list(
         self, cache_key: str, films_data: str, expire: int = 60
     ) -> None:
-        """Сохранить список фильмов в кэш"""
+        """Сохранить список фильмов в кэш."""
+        ...
+
+
+class AbstractEventPublisher(ABC):
+    """Абстракция для публикации событий - пример Kafka."""
+
+    @abstractmethod
+    async def publish(self, topic: str, key: str | None, value: bytes) -> None:
+        """Опубликовать событие в указанный топик."""
         ...
