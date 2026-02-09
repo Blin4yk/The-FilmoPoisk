@@ -34,7 +34,7 @@ async def init_kafka_producer() -> None:
         return
 
     producer = AIOKafkaProducer(
-        bootstrap_servers='kafka:9092',
+        bootstrap_servers=settings.kafka_bootstrap_servers,
         value_serializer=lambda v: v,
     )
 

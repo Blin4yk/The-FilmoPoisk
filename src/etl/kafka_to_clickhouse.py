@@ -9,6 +9,8 @@ import clickhouse_connect
 from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import KafkaConnectionError, KafkaError
 
+from core.config import settings
+
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
@@ -21,19 +23,19 @@ class KafkaToClickHouseETL:
     """ETL-сервис для переноса пользовательских событий из Kafka в ClickHouse."""
 
     def __init__(self) -> None:
-        self._bootstrap_servers = 'kafka:9092'
-        self._topic = 'user_events'
+        self._bootstrap_servers = settings.kafka_bootstrap_servers
+        self._topic = settings.kafka_user_events_topic
         self._group_id = 'user-events-etl'
         self._clickhouse_client = None
 
     async def _connect_to_clickhouse(self) -> None:
         """Подключиться к ClickHouse с повторными попытками."""
         client_kwargs = {
-            'host': 'clickhouse',
-            'port': 8123,
-            'username': 'user',
-            'password': '12345',
-            'database': 'analytics',
+            'host': settings.clickhouse_host,
+            'port': settings.clickhouse_port,
+            'username': settings.clickhouse_user,
+            'password': settings.clickhouse_password,
+            'database': settings.clickhouse_database,
         }
 
         max_retries = 20

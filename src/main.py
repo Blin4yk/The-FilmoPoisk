@@ -32,8 +32,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Инициализируем Kafka продьюсер для отправки пользовательских событий
     await init_kafka_producer()
 
-    # PostgreSQL инициализируется через SQLAlchemy engine в db/postgres.py
-    # Проверка подключения с retry логикой (до 5 попыток с интервалом 2 секунды)
     max_retries = 5
     retry_delay = 2
     for attempt in range(max_retries):

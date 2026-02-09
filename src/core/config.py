@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     clickhouse_host: str = Field('clickhouse', alias='CLICKHOUSE_HOST')
     clickhouse_port: int = Field(8123, alias='CLICKHOUSE_PORT')
     clickhouse_database: str = Field('analytics', alias='CLICKHOUSE_DATABASE')
-    clickhouse_user: str = Field('default', alias='CLICKHOUSE_USER')
+    clickhouse_user: str = Field('user', alias='CLICKHOUSE_USER')
     # Пустая строка трактуется как отсутствие пароля (для стандартного пользователя default)
     clickhouse_password: str | None = Field(
         None,
