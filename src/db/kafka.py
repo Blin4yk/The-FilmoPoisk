@@ -18,7 +18,6 @@ class KafkaEventPublisher(AbstractEventPublisher):
 
     async def publish(self, topic: str, key: str | None, value: bytes) -> None:
         key_bytes = key.encode('utf-8') if key is not None else None
-        print(f"KEY_BYTES {key_bytes}")
         await self._producer.send_and_wait(topic, value=value, key=key_bytes)
 
 

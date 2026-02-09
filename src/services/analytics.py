@@ -23,9 +23,7 @@ class AnalyticsService:
         """Отправить пакет событий в Kafka."""
         for event in events:
             payload = json.dumps(event.model_dump(mode='json')).encode('utf-8')
-            print(f"PAYLOAD {payload}")
             key = event.session_id
-            print(f"KEY {key}")
             await self._publisher.publish(self._topic, key=key, value=payload)
 
 
