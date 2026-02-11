@@ -4,12 +4,12 @@ import uuid
 import logging
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, List, Dict, Optional
+from typing import Any
 
 import clickhouse_connect
 from aiokafka import AIOKafkaConsumer, TopicPartition
 from aiokafka.errors import KafkaConnectionError, KafkaError
-from aiokafka.structs import OffsetAndMetadata
+
 
 from core.config import settings
 
@@ -33,9 +33,9 @@ class KafkaToClickHouseETL:
         # Параметры батчинга
         self._batch_max_size = 1000
         self._batch_max_seconds = 5.0
-        self._batch: List[Dict[str, Any]] = []
+        self._batch: list[dict[str, Any]] = []
         self._last_batch_time = 0.0
-        self._pending_offsets: Dict[TopicPartition, int] = {}
+        self._pending_offsets: dict[TopicPartition, int] = {}
         self._batch_lock = asyncio.Lock()
 
     async def _connect_to_clickhouse(self) -> None:
@@ -180,7 +180,7 @@ class KafkaToClickHouseETL:
         except Exception:
             return datetime.now()
 
-    def _prepare_row(self, event: Dict[str, Any]) -> List[Any]:
+    def _prepare_row(self, event: dict[str, Any]) -> list[Any]:
         """Преобразование события в строку для вставки."""
         ts_str = event.get('timestamp')
         timestamp = self._parse_timestamp(ts_str) if ts_str else datetime.now()
@@ -220,7 +220,7 @@ class KafkaToClickHouseETL:
             json.dumps(event.get('metadata') or {}),
         ]
 
-    def _insert_batch(self, events: List[Dict[str, Any]]) -> None:
+    def _insert_batch(self, events: list[dict[str, Any]]) -> None:
         """Синхронная вставка пачки событий в ClickHouse."""
         columns = [
             'timestamp', 'event_type', 'user_id', 'session_id', 'page',
@@ -245,7 +245,7 @@ class KafkaToClickHouseETL:
         """Фоновая задача: принудительный сброс по таймауту."""
         while True:
             await asyncio.sleep(self._batch_max_seconds)
-            # Проверяем условие без захвата блокировки — внутри _flush_batch она захватится
+            # Проверка условие без захвата блокировки
             if self._batch and (asyncio.get_event_loop().time() - self._last_batch_time) >= self._batch_max_seconds:
                 logger.info(f"Таймаут: сброс батча из {len(self._batch)} событий")
                 await self._flush_batch()
