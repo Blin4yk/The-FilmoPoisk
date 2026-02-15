@@ -67,4 +67,4 @@ jobs:
         message: |
           ${{ github.event_name == 'pull_request' || '' }} ${{ github.event_name }} in ${{ github.repository }}
           ${{ github.actor }}
-          Commit: https://github.com/${{ github.repository }}/commit/${{ github.sha }}">${{ github.sha }}
+          Commit: https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
