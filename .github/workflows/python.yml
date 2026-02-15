@@ -9,11 +9,16 @@ jobs:
 
     - name: Debug secrets availability
       run: |
-        echo "Token length: ${secrets.TELEGRAM_BOT_TOKEN}"
-        echo "Chat ID length: ${secrets.TELEGRAM_CHAT_ID}"
+        echo "Token length: ${#TELEGRAM_BOT_TOKEN}"
+        echo "Chat ID length: ${#TELEGRAM_CHAT_ID}"
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+    - name: Check secrets existence
+      run: |
+        echo "Token: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && 'exists' || 'MISSING' }}"
+        echo "Chat ID: ${{ secrets.TELEGRAM_CHAT_ID != '' && 'exists' || 'MISSING' }}"
 
     - name: Send via curl
       env:
