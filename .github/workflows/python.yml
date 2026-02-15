@@ -20,11 +20,9 @@ jobs:
         echo "Token: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && 'exists' || 'MISSING' }}"
         echo "Chat ID: ${{ secrets.TELEGRAM_CHAT_ID != '' && 'exists' || 'MISSING' }}"
 
-    - name: Send via curl
-      env:
-        TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      run: |
-        curl -s -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
-          -d chat_id="${CHAT_ID}" \
-          -d text="CI/CD настроен"
+    - name: Send Telegram
+      uses: appleboy/telegram-action@v0.1.1
+      with:
+        to: ${{ secrets.TELEGRAM_CHAT_ID }}
+        token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        message: CI/CD настроен
