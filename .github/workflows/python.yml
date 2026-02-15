@@ -9,8 +9,8 @@ jobs:
 
     - name: Debug secrets availability
       run: |
-        echo "Token length: ${#TELEGRAM_BOT_TOKEN}"
-        echo "Chat ID length: ${#TELEGRAM_CHAT_ID}"
+        echo "Token length: ${secrets.TELEGRAM_BOT_TOKEN}"
+        echo "Chat ID length: ${secrets.TELEGRAM_CHAT_ID}"
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
