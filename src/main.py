@@ -21,8 +21,6 @@ from middleware.request_id import RequestIDMiddleware
 logger = logging.getLogger(__name__)
 
 
-
-
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     redis.redis = Redis(host=settings.redis_host, port=settings.redis_port)
@@ -31,7 +29,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         headers={'Accept': 'application/vnd.elasticsearch+json; compatible-with=8'},
     )
 
-    # Инициализируем Kafka продьюсер для отправки пользовательских событии
+    # Инициализируем Kafka продьюсер для отправки пользовательских событий
     await init_kafka_producer()
 
     max_retries = 5
