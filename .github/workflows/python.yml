@@ -55,8 +55,8 @@ jobs:
 
   notify:
     runs-on: ubuntu-latest
-    needs: [ lint ]
-    if: success()
+#    needs: [ lint ]
+#    if: success()
 
     steps:
       - name: send telegram message on push
