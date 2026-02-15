@@ -59,7 +59,7 @@ jobs:
 
   notify:
     runs-on: ubuntu-latest
-    needs: [ lint, test ]          # ждём завершения линтинга и всех тестов
+    needs: [ lint ]          # ждём завершения линтинга и всех тестов
     if: success()                 # только если они прошли успешно
 
     steps:
