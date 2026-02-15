@@ -46,7 +46,7 @@ class ElasticDataStorage(AbstractDataStorage):
         self,
         index: str = None,
         query: dict[str, any] = None,
-        sort: list | str = None, 
+        sort: list | str = None,
         page: int = 1,
         size: int = 50,
         **kwargs,
