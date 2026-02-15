@@ -65,8 +65,8 @@ jobs:
         to: ${{ secrets.TELEGRAM_CHAT_ID }}
         token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         message: |
-          ✅ <b>${{ github.event_name == 'pull_request' && '🔀' || '📦' }} ${{ github.event_name }}</b> in <b>${{ github.repository }}</b>
-          👤 <b>${{ github.actor }}</b>
-          🔗 Commit: <a href="https://github.com/${{ github.repository }}/commit/${{ github.sha }}">${{ github.sha }}</a>
-          🌿 Branch: <code>${{ github.ref }}</code>
-          ${{ github.event.pull_request && format('🔢 <a href="https://github.com/{0}/pull/{1}">PR #{1}</a>: {2}', github.repository, github.event.pull_request.number, github.event.pull_request.title) }}
+          **${{ github.event_name == 'pull_request' }} ${{ github.event_name }}** in **${{ github.repository }}**
+          **${{ github.actor }}**
+          Commit: https://github.com/${{ github.repository }}/commit/${{ github.sha }}">${{ github.sha }}
+          Branch: <code>${{ github.ref }}</code>
+          ${{ github.event.pull_request && format('https://github.com/{0}/pull/{1}">PR #{1}: {2}', github.repository, github.event.pull_request.number, github.event.pull_request.title) }}
