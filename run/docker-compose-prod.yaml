@@ -8,6 +8,27 @@ services:
       - ./redisdata:/data
     stdin_open: true
 
+  postgres-benchmark:
+    image: postgres:17
+    container_name: postgres-benchmark
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-db}
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "${POSTGRES_EXTERNAL_PORT:-5432}:5432"
+    volumes:
+      - postgres_benchmark_data:/var/lib/postgresql/data
+
+  mongo:
+    image: mongo:7
+    container_name: mongo
+    ports:
+      - "${MONGO_EXTERNAL_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+
+
   elasticsearch-with-dump:
     image: elasticsearch:8.13.0
     container_name: elasticsearch-with-dump
@@ -21,6 +42,88 @@ services:
     ports:
       - "${ELASTICSEARCH_EXTERNAL_PORT:-}:${ELASTICSEARCH_INTERNAL_PORT:-9200}"
     stdin_open: true
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.0
+    container_name: logstash
+    volumes:
+      - ./elk/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    ports:
+      - "5044:5044"
+    depends_on:
+      - elasticsearch-with-dump
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch-with-dump:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch-with-dump
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.13.0
+    container_name: filebeat
+    user: root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    volumes:
+      - ./elk/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - logstash
+
+  sentry-postgres:
+    image: postgres:17
+    container_name: sentry-postgres
+    environment:
+      POSTGRES_PASSWORD: sentry
+      POSTGRES_USER: sentry
+      POSTGRES_DB: sentry
+    volumes:
+      - sentry_postgres_data:/var/lib/postgresql/data
+
+  sentry:
+    image: getsentry/sentry:24.1.0
+    container_name: sentry
+    depends_on:
+      - sentry-postgres
+      - redis
+    environment:
+      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-please-change-me}
+      SENTRY_POSTGRES_HOST: sentry-postgres
+      SENTRY_DB_USER: sentry
+      SENTRY_DB_PASSWORD: sentry
+      SENTRY_REDIS_HOST: redis
+    command: ["run", "web"]
+    ports:
+      - "9000:9000"
+
+  sentry-worker:
+    image: getsentry/sentry:24.1.0
+    depends_on:
+      - sentry
+    environment:
+      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-please-change-me}
+      SENTRY_POSTGRES_HOST: sentry-postgres
+      SENTRY_DB_USER: sentry
+      SENTRY_DB_PASSWORD: sentry
+      SENTRY_REDIS_HOST: redis
+    command: ["run", "worker"]
+
+  sentry-cron:
+    image: getsentry/sentry:24.1.0
+    depends_on:
+      - sentry
+    environment:
+      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-please-change-me}
+      SENTRY_POSTGRES_HOST: sentry-postgres
+      SENTRY_DB_USER: sentry
+      SENTRY_DB_PASSWORD: sentry
+      SENTRY_REDIS_HOST: redis
+    command: ["run", "cron"]
 
   fastapi:
     build:
@@ -36,9 +139,13 @@ services:
       - elasticsearch-with-dump
       - redis
       - kafka
+      - postgres-benchmark
+      - mongo
     environment:
       - ENVIRONMENT=development
       - PYTHONPATH=/app
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - MONGO_HOST=mongo
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/api/openapi" ]
@@ -97,28 +204,9 @@ services:
     environment:
       - PYTHONPATH=/app
 
-  tests:
-    build:
-      context: ..
-      dockerfile: ./Dockerfile.test
-    environment:
-      - API_URL=http://fastapi:8000/api/v1
-      - ELASTICSEARCH_URL=http://elasticsearch-with-dump:9200
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      fastapi:
-        condition: service_healthy
-    volumes:
-      - ./test-reports:/app/test-reports
-    command:
-      - sh
-      - -c
-      - |
-        echo "Waiting for services..."
-        python tests/scripts/wait_for_services.py
-        python tests/scripts/load_test_data.py
-        pytest tests/functional/ -v --junitxml=test-reports/results.xml
-
 volumes:
   es-data01:
     driver: local
+  mongo_data:
+  postgres_benchmark_data:
+  sentry_postgres_data:
