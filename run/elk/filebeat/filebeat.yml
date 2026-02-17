@@ -1,0 +1,13 @@
+filebeat.inputs:
+  - type: filestream
+    id: fastapi-logs
+    paths:
+      - /var/lib/docker/containers/*/*.log
+    parsers:
+      - container: ~
+
+processors:
+  - add_docker_metadata: ~
+
+output.logstash:
+  hosts: ["logstash:5044"]
