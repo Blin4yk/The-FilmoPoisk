@@ -12,9 +12,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from api.v1 import auth, events, films, roles
 from core.config import settings
+from core.sentry import setup_sentry
 from core.tracing import setup_tracing
 from db import elastic, postgres, redis
 from db.kafka import close_kafka_producer, init_kafka_producer
+from db.mongo import init_mongo, close_mongo
 from middleware.rate_limit import RateLimitMiddleware
 from middleware.request_id import RequestIDMiddleware
 
@@ -31,6 +33,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Инициализируем Kafka продьюсер для отправки пользовательских событий
     await init_kafka_producer()
+
+    await init_mongo()
 
     max_retries = 5
     retry_delay = 2
@@ -60,9 +64,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await redis.redis.close()
     await elastic.es.close()
     await postgres.engine.dispose()
+    await close_mongo()
     await close_kafka_producer()
 
-
+setup_sentry()
 app = FastAPI(
     title=settings.project_name,
     docs_url='/api/openapi',
