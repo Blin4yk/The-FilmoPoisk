@@ -102,6 +102,30 @@ class OAuthSettings(BaseSettings):
         return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-oauth_settings = OAuthSettings()
+class MongoSentrySettings(BaseSettings):
+    """Настройки для MongoDB и Sentry"""
 
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    mongo_host: str = Field('mongo', alias='MONGO_HOST')
+    mongo_port: int = Field(27017, alias='MONGO_PORT')
+    mongo_db: str = Field('ugc', alias='MONGO_DB')
+    mongo_user: str | None = Field(None, alias='MONGO_USER')
+    mongo_password: str | None = Field(None, alias='MONGO_PASSWORD')
+
+    @property
+    def mongo_url(self) -> str:
+        if self.mongo_user and self.mongo_password:
+            return f'mongodb://{self.mongo_user}:{self.mongo_password}@{self.mongo_host}:{self.mongo_port}/{self.mongo_db}?authSource=admin'
+        return f'mongodb://{self.mongo_host}:{self.mongo_port}/{self.mongo_db}'
+
+    sentry_dsn: str | None = Field(None, alias='SENTRY_DSN')
+    sentry_environment: str = Field('development', alias='SENTRY_ENVIRONMENT')
+    sentry_traces_sample_rate: float = Field(0.1, alias='SENTRY_TRACES_SAMPLE_RATE')
+
+    @property
+    def base_dir(self) -> str:
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+mongo_sentry_settings: MongoSentrySettings = MongoSentrySettings()
+oauth_settings = OAuthSettings()
 settings = Settings()
