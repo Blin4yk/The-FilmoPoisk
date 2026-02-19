@@ -91,55 +91,61 @@ services:
     depends_on:
       - logstash
 
-  sentry-postgres:
-    image: postgres:16-alpine
-    container_name: sentry-postgres
-    environment:
-      POSTGRES_PASSWORD: sentry
-      POSTGRES_USER: sentry
-      POSTGRES_DB: sentry
-    volumes:
-      - sentry_postgres_data:/var/lib/postgresql/data
-
-  sentry:
-    image: getsentry/sentry:24.1.0
-    container_name: sentry
-    depends_on:
-      - sentry-postgres
-      - redis
-    environment:
-      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-please-change-me}
-      SENTRY_POSTGRES_HOST: sentry-postgres
-      SENTRY_DB_USER: sentry
-      SENTRY_DB_PASSWORD: sentry
-      SENTRY_REDIS_HOST: redis
-    command: [ "run", "web" ]
-    ports:
-      - "9000:9000"
-
-  sentry-worker:
-    image: getsentry/sentry:24.1.0
-    depends_on:
-      - sentry
-    environment:
-      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-please-change-me}
-      SENTRY_POSTGRES_HOST: sentry-postgres
-      SENTRY_DB_USER: sentry
-      SENTRY_DB_PASSWORD: sentry
-      SENTRY_REDIS_HOST: redis
-    command: [ "run", "worker" ]
-
-  sentry-cron:
-    image: getsentry/sentry:24.1.0
-    depends_on:
-      - sentry
-    environment:
-      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-please-change-me}
-      SENTRY_POSTGRES_HOST: sentry-postgres
-      SENTRY_DB_USER: sentry
-      SENTRY_DB_PASSWORD: sentry
-      SENTRY_REDIS_HOST: redis
-    command: [ "run", "cron" ]
+#  sentry-postgres:
+#    image: postgres:16-alpine
+#    container_name: sentry-postgres
+#    environment:
+#      POSTGRES_PASSWORD: sentry
+#      POSTGRES_USER: sentry
+#      POSTGRES_DB: sentry
+#    volumes:
+#      - sentry_postgres_data:/var/lib/postgresql/data
+#
+#  sentry:
+#    image: getsentry/sentry:24.1.0
+#    container_name: sentry
+#    depends_on:
+#      - sentry-postgres
+#      - redis
+#    environment:
+#      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-тут-должен-быть-32-символьный-ключ}
+#      SENTRY_POSTGRES_HOST: sentry-postgres
+#      SENTRY_DB_USER: sentry
+#      SENTRY_DB_PASSWORD: sentry
+#      SENTRY_REDIS_HOST: redis
+#    volumes:
+#      - ./sentry.conf.py:/etc/sentry/sentry.conf.py:ro
+#    command: [ "run", "web" ]
+#    ports:
+#      - "9000:9000"
+#
+#  sentry-worker:
+#    image: getsentry/sentry:24.1.0
+#    depends_on:
+#      - sentry
+#    environment:
+#      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-тут-должен-быть-32-символьный-ключ}
+#      SENTRY_POSTGRES_HOST: sentry-postgres
+#      SENTRY_DB_USER: sentry
+#      SENTRY_DB_PASSWORD: sentry
+#      SENTRY_REDIS_HOST: redis
+#    volumes:
+#      - ./sentry.conf.py:/etc/sentry/sentry.conf.py:ro
+#    command: [ "run", "worker" ]
+#
+#  sentry-cron:
+#    image: getsentry/sentry:24.1.0
+#    depends_on:
+#      - sentry
+#    environment:
+#      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-тут-должен-быть-32-символьный-ключ}
+#      SENTRY_POSTGRES_HOST: sentry-postgres
+#      SENTRY_DB_USER: sentry
+#      SENTRY_DB_PASSWORD: sentry
+#      SENTRY_REDIS_HOST: redis
+#    volumes:
+#      - ./sentry.conf.py:/etc/sentry/sentry.conf.py:ro
+#    command: [ "run", "cron" ]
 
   jaeger:
     image: jaegertracing/all-in-one:latest
@@ -171,7 +177,7 @@ services:
     environment:
       - ENVIRONMENT=development
       - PYTHONPATH=/app
-      - SENTRY_DSN=${SENTRY_DSN:-}
+#      - SENTRY_DSN=${SENTRY_DSN:-}
       - MONGO_HOST=mongo
     restart: unless-stopped
     healthcheck:
@@ -282,5 +288,5 @@ volumes:
   kafka_data:
   mongo_data:
   postgres_benchmark_data:
-  sentry_postgres_data:
+#  sentry_postgres_data:
 

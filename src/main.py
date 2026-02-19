@@ -3,6 +3,7 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator
 
+import uvicorn
 from elasticsearch import AsyncElasticsearch
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
@@ -10,7 +11,7 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from api.v1 import auth, events, films, roles
+from api.v1 import auth, events, films, roles, ugc
 from core.config import settings
 from core.sentry import setup_sentry
 from core.tracing import setup_tracing
@@ -98,6 +99,7 @@ app.include_router(auth.router)
 app.include_router(roles.router)
 app.include_router(films.router)
 app.include_router(events.router)
+app.include_router(ugc.router)
 
 # Для локальной разработки надо раскомментировать код ниже
 # if __name__ == '__main__':
