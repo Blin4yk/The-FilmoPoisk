@@ -7,3 +7,4 @@ docker-compose-local.yaml
 *.idea
 *.rdb
 src/for_me.py
+.venv/

@@ -7,7 +7,34 @@ filebeat.inputs:
       - container: ~
 
 processors:
-  - add_docker_metadata: ~
+  processors:
+
+    - add_docker_metadata: ~
+
+    - add_fields:
+        when:
+          contains:
+            container.name: "nginx"
+        target: ""
+        fields:
+          tag: "nginx"
+
+    - add_fields:
+        when:
+          contains:
+            container.name: "etl-user-events"
+        target: ""
+        fields:
+          tag: "etl_user_events"
+
+    - add_fields:
+        when:
+          or:
+            - contains:
+                container.name: "fastapi"
+        target: ""
+        fields:
+          tag: "fastapi_app"
 
 output.logstash:
   hosts: ["logstash:5044"]
