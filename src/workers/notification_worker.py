@@ -3,12 +3,13 @@
 import asyncio
 import json
 import logging
-import smtplib
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import EmailMessage
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
+import aiosmtplib
 import httpx
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
@@ -37,6 +38,17 @@ class NotificationSender(Protocol):
         """Отправить уведомление получателю."""
 
 
+@runtime_checkable
+class ManagedSender(NotificationSender, Protocol):
+    """Протокол отправителя с управляемым жизненным циклом подключения."""
+
+    async def start(self) -> None:
+        """Подготовить подключение перед серией отправок."""
+
+    async def stop(self) -> None:
+        """Закрыть подключение после серии отправок."""
+
+
 class LogNotificationSender:
     """Базовый отправитель, который пишет отправку в лог."""
 
@@ -56,12 +68,31 @@ class LogNotificationSender:
 
 
 class EmailNotificationSender:
-    """Отправитель email-уведомлений через smtplib."""
+    """Отправитель email-уведомлений через smtplib с переиспользованием сессии."""
+
+    def __init__(self) -> None:
+        self._smtp: aiosmtplib.SMTP | None = None
+
+    async def start(self) -> None:
+        """Открыть SMTP-соединение и выполнить логин один раз на пачку отправок."""
+        if self._smtp is not None:
+            return
+        self._smtp = await asyncio.to_thread(self._connect)
+
+    async def stop(self) -> None:
+        """Закрыть SMTP-соединение."""
+        if self._smtp is None:
+            return
+        await asyncio.to_thread(self._smtp.quit)
+        self._smtp = None
 
     async def send(self, recipient: Recipient, subject: str, text: str) -> None:
         """Отправить email-уведомление пользователю."""
         if not recipient.email:
             raise ValueError(f'У пользователя {recipient.user_id} отсутствует email')
+
+        if self._smtp is None:
+            await self.start()
 
         message = EmailMessage()
         message['From'] = notification_settings.smtp_from_email
@@ -71,14 +102,20 @@ class EmailNotificationSender:
 
         await asyncio.to_thread(self._send_sync, message)
 
+    def _connect(self) -> aiosmtplib.SMTP:
+        """Открыть и авторизовать SMTP-сессию."""
+        smtp = aiosmtplib.SMTP(hostname=notification_settings.smtp_host, port=notification_settings.smtp_port, timeout=10)
+        if notification_settings.smtp_use_tls:
+            smtp.starttls()
+        if notification_settings.smtp_username:
+            smtp.login(notification_settings.smtp_username, notification_settings.smtp_password or '')
+        return smtp
+
     def _send_sync(self, message: EmailMessage) -> None:
         """Синхронная отправка email через SMTP."""
-        with smtplib.SMTP(notification_settings.smtp_host, notification_settings.smtp_port, timeout=10) as smtp:
-            if notification_settings.smtp_use_tls:
-                smtp.starttls()
-            if notification_settings.smtp_username:
-                smtp.login(notification_settings.smtp_username, notification_settings.smtp_password or '')
-            smtp.send_message(message)
+        if self._smtp is None:
+            raise RuntimeError('SMTP соединение не инициализировано')
+        self._smtp.send_message(message)
 
 
 class SenderFactory:
@@ -125,9 +162,8 @@ class AuthUserClient:
             last_name=data.get('last_name'),
         )
 
-    async def list_users(self, page_size: int = 100) -> list[Recipient]:
-        """Запросить всех пользователей порциями для широковещательных уведомлений."""
-        users: list[Recipient] = []
+    async def iter_users_batches(self, page_size: int = 100) -> AsyncIterator[list[Recipient]]:
+        """Итерировать пользователей батчами для широковещательных уведомлений."""
         page = 1
         async with httpx.AsyncClient(timeout=10.0) as client:
             while True:
@@ -140,20 +176,22 @@ class AuthUserClient:
                 items = payload.get('items', payload)
                 if not items:
                     break
-                for data in items:
-                    users.append(
-                        Recipient(
-                            user_id=str(data['id']),
-                            username=data.get('username', ''),
-                            email=data.get('email'),
-                            first_name=data.get('first_name'),
-                            last_name=data.get('last_name'),
-                        )
+
+                batch = [
+                    Recipient(
+                        user_id=str(data['id']),
+                        username=data.get('username', ''),
+                        email=data.get('email'),
+                        first_name=data.get('first_name'),
+                        last_name=data.get('last_name'),
                     )
+                    for data in items
+                ]
+                yield batch
+
                 if len(items) < page_size:
                     break
                 page += 1
-        return users
 
 
 class NotificationWorker:
@@ -190,38 +228,51 @@ class NotificationWorker:
 
     async def _process_message(self, payload: dict[str, Any]) -> None:
         """Обработать одно сообщение очереди."""
-        recipients = await self._resolve_recipients(payload)
         sender = self._sender_factory.get(payload['channel'])
+        managed_sender = sender if isinstance(sender, ManagedSender) else None
 
-        for recipient in recipients:
-            context = payload.get('payload', {}).copy()
-            context.update(
-                {
-                    'first_name': recipient.first_name or recipient.username,
-                    'last_name': recipient.last_name or '',
-                    'email': recipient.email or '',
-                    'username': recipient.username,
-                }
-            )
-            rendered_text = self._render_message(payload.get('text'), context)
-            await sender.send(recipient=recipient, subject=payload['subject'], text=rendered_text)
-            await self._save_notification(
-                user_id=recipient.user_id,
-                subject=payload['subject'],
-                text=rendered_text,
-                channel=payload['channel'],
-            )
+        if managed_sender is not None:
+            await managed_sender.start()
 
-    async def _resolve_recipients(self, payload: dict[str, Any]) -> list[Recipient]:
-        """Определить список получателей для уведомления."""
+        try:
+            async for recipients in self._iter_recipient_batches(payload):
+                for recipient in recipients:
+                    context = payload.get('payload', {}).copy()
+                    context.update(
+                        {
+                            'first_name': recipient.first_name or recipient.username,
+                            'last_name': recipient.last_name or '',
+                            'email': recipient.email or '',
+                            'username': recipient.username,
+                        }
+                    )
+                    rendered_text = self._render_message(payload.get('text'), context)
+                    await sender.send(recipient=recipient, subject=payload['subject'], text=rendered_text)
+                    await self._save_notification(
+                        user_id=recipient.user_id,
+                        subject=payload['subject'],
+                        text=rendered_text,
+                        channel=payload['channel'],
+                    )
+        finally:
+            if managed_sender is not None:
+                await managed_sender.stop()
+
+    async def _iter_recipient_batches(self, payload: dict[str, Any]) -> AsyncIterator[list[Recipient]]:
+        """Итерировать получателей пачками для экономии памяти."""
         user_id = payload.get('user_id')
         if user_id:
-            return [await self._auth_client.get_user(user_id)]
+            user = await self._auth_client.get_user(user_id)
+            yield [user]
+            return
 
-        users = await self._auth_client.list_users()
-        if not users:
+        has_any = False
+        async for batch in self._auth_client.iter_users_batches():
+            has_any = True
+            yield batch
+
+        if not has_any:
             logger.warning('Широковещательное уведомление пропущено: нет получателей')
-        return users
 
     async def _save_notification(self, user_id: str, subject: str, text: str, channel: str) -> None:
         """Сохранить отправленное уведомление для отображения в личном кабинете."""
