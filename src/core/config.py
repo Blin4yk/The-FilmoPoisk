@@ -21,14 +21,6 @@ class Settings(BaseSettings):
     elastic_host: str = Field('elasticsearch-with-dump', alias='ELASTIC_HOST')
     elastic_port: int = Field(9200, alias='ELASTIC_PORT')
 
-    # Kafka (для сбора пользовательских действий)
-    kafka_bootstrap_servers: str = Field(
-        'kafka:9092', alias='KAFKA_BOOTSTRAP_SERVERS'
-    )
-    kafka_user_events_topic: str = Field(
-        'user_events', alias='KAFKA_USER_EVENTS_TOPIC'
-    )
-
     # ClickHouse (для аналитического хранения пользовательских действий)
     clickhouse_host: str = Field('clickhouse', alias='CLICKHOUSE_HOST')
     clickhouse_port: int = Field(8123, alias='CLICKHOUSE_PORT')
@@ -86,8 +78,8 @@ class OAuthSettings(BaseSettings):
         'https://oauth.yandex.ru/verification_code', alias='OAUTH_REDIRECT_URI'
     )
 
-    AUTHORIZATION_BASE_URL: str = Field('https://oauth.yandex.ru/authorize', alias="AUTHORIZATION_BASE_URL")
-    TOKEN_URL: str = Field('https://oauth.yandex.ru/token', alias="TOKEN_URL")
+    AUTHORIZATION_BASE_URL: str = Field('https://oauth.yandex.ru/authorize', alias='AUTHORIZATION_BASE_URL')
+    TOKEN_URL: str = Field('https://oauth.yandex.ru/token', alias='TOKEN_URL')
 
     oauth_credentials: dict = {
         'yandex': {
@@ -104,8 +96,8 @@ class OAuthSettings(BaseSettings):
 
 class MongoSentrySettings(BaseSettings):
     """Настройки для MongoDB и Sentry"""
-
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+
     mongo_host: str = Field('mongo', alias='MONGO_HOST')
     mongo_port: int = Field(27017, alias='MONGO_PORT')
     mongo_db: str = Field('ugc', alias='MONGO_DB')
@@ -126,6 +118,52 @@ class MongoSentrySettings(BaseSettings):
     def base_dir(self) -> str:
         return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+class KafkaSettings(BaseSettings):
+    """Настройки для Kafka"""
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+
+    # Kafka (для сбора пользовательских действий)
+    kafka_bootstrap_servers: str = Field(
+        'kafka:9092', alias='KAFKA_BOOTSTRAP_SERVERS'
+    )
+    kafka_user_events_topic: str = Field(
+        'user_events', alias='KAFKA_USER_EVENTS_TOPIC'
+    )
+
+    # Kafka (для уведомлений)
+    kafka_notifications_topic: str = Field(
+        'notifications', alias='KAFKA_NOTIFICATIONS_TOPIC'
+    )
+    kafka_notifications_dlt_topic: str = Field(
+        'notifications_dlt', alias='KAFKA_NOTIFICATIONS_DLT_TOPIC'
+    )
+
+    auth_service_url: str = Field('http://localhost:8000', alias='AUTH_SERVICE_URL')
+
+    @property
+    def base_dir(self) -> str:
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+class NotificationSettings(BaseSettings):
+    """Настройки для Уведомлений"""
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+
+    auth_service_url: str = Field('http://localhost:8000', alias='AUTH_SERVICE_URL')
+
+    enable_smtp_notifications: bool = Field(False, alias='ENABLE_SMTP_NOTIFICATIONS')
+    smtp_host: str = Field('localhost', alias='SMTP_HOST')
+    smtp_port: int = Field(25, alias='SMTP_PORT')
+    smtp_use_tls: bool = Field(False, alias='SMTP_USE_TLS')
+    smtp_username: str | None = Field(None, alias='SMTP_USERNAME')
+    smtp_password: str | None = Field(None, alias='SMTP_PASSWORD')
+    smtp_from_email: str = Field('noreply@filmopoisk.local', alias='SMTP_FROM_EMAIL')
+
+    @property
+    def base_dir(self) -> str:
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+notification_settings = NotificationSettings()
+kafka_settings = KafkaSettings()
 mongo_sentry_settings: MongoSentrySettings = MongoSentrySettings()
 oauth_settings = OAuthSettings()
 settings = Settings()

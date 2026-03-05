@@ -11,7 +11,7 @@ from aiokafka import AIOKafkaConsumer, TopicPartition
 from aiokafka.errors import KafkaConnectionError, KafkaError
 
 
-from core.config import settings
+from core.config import settings, kafka_settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,8 +24,8 @@ class KafkaToClickHouseETL:
     """ETL-сервис с пакетной записью в ClickHouse и ручным коммитом смещений Kafka."""
 
     def __init__(self) -> None:
-        self._bootstrap_servers = settings.kafka_bootstrap_servers
-        self._topic = settings.kafka_user_events_topic
+        self._bootstrap_servers = kafka_settings.kafka_bootstrap_servers
+        self._topic = kafka_settings.kafka_user_events_topic
         self._group_id = 'user-events-etl'
         self._clickhouse_client = None
         self._consumer = None

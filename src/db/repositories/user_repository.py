@@ -1,10 +1,11 @@
 """Репозиторий для операций с пользователями в базе данных."""
 from uuid import UUID
 
-from models.user import User
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+from models.user import User
 
 
 class UserRepository:
@@ -67,7 +68,7 @@ class UserRepository:
         return result.scalar_one_or_none()
 
     async def create(
-        self, username: str, email: str, password_hash: str, is_superuser: bool = True
+            self, username: str, email: str, password_hash: str, is_superuser: bool = True
     ) -> User:
         """
         Создать нового пользователя.
@@ -114,7 +115,7 @@ class UserRepository:
         return await self.get_by_id(user_id)
 
     async def update_password(
-        self, user_id: UUID, new_password_hash: str
+            self, user_id: UUID, new_password_hash: str
     ) -> User | None:
         """
         Обновить пароль пользователя.
@@ -135,7 +136,7 @@ class UserRepository:
         return await self.get_by_id(user_id)
 
     async def update_username_and_password(
-        self, user_id: UUID, new_username: str | None, new_password_hash: str | None
+            self, user_id: UUID, new_username: str | None, new_password_hash: str | None
     ) -> User | None:
         """
         Обновить username и/или пароль пользователя.
@@ -160,3 +161,14 @@ class UserRepository:
             )
             await self.session.commit()
         return await self.get_by_id(user_id)
+
+    async def get_all(self, offset: int = 0, limit: int = 100) -> list[User]:
+        """Получить список пользователей c пагинацией."""
+        result = await self.session.execute(
+            select(User)
+            .order_by(User.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .options(selectinload(User.roles))
+        )
+        return list(result.scalars().all())

@@ -244,6 +244,32 @@ services:
       - CLICKHOUSE_USER=user
       - CLICKHOUSE_PASSWORD=12345
 
+  notification-worker:
+    build:
+      context: ..
+      dockerfile: ./Dockerfile
+    depends_on:
+      - kafka
+      - mongo
+      - fastapi
+    volumes:
+      - ../src:/app
+    working_dir: /app
+    command: python -m workers.run_notification_worker
+    environment:
+      - PYTHONPATH=/app
+      - AUTH_SERVICE_URL=http://fastapi:8000
+      - MONGO_HOST=mongo
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - ENABLE_SMTP_NOTIFICATIONS=${ENABLE_SMTP_NOTIFICATIONS:-false}
+      - SMTP_HOST=${SMTP_HOST:-mailhog}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+      - SMTP_USE_TLS=${SMTP_USE_TLS:-false}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL:-noreply@filmopoisk.local}
+    restart: unless-stopped
+
   etl-user-events:
     build:
       context: ..

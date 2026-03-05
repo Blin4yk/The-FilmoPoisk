@@ -11,7 +11,7 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from api.v1 import auth, events, films, roles, ugc
+from api.v1 import auth, events, films, roles, ugc, notifications
 from core.config import settings
 from core.sentry import setup_sentry
 from core.tracing import setup_tracing
@@ -75,7 +75,7 @@ app = FastAPI(
     openapi_url='/api/openapi.json',
     default_response_class=ORJSONResponse,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=['*'],
     allow_methods=['*'],
     allow_headers=['*'],
     lifespan=lifespan,
@@ -99,6 +99,7 @@ app.include_router(auth.router)
 app.include_router(roles.router)
 app.include_router(films.router)
 app.include_router(events.router)
+app.include_router(notifications.router)
 app.include_router(ugc.router)
 
 # Для локальной разработки надо раскомментировать код ниже
