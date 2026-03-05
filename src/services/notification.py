@@ -139,8 +139,8 @@ class NotificationService:
 
 
 async def get_notification_service(
-        publisher: NotificationPublisher = Depends(get_notification_publisher),  # noqa: B008
-        mongo_db: AsyncIOMotorDatabase = Depends(get_mongo_db),  # noqa: B008
+        publisher: NotificationPublisher = Depends(get_notification_publisher),
+        mongo_db: AsyncIOMotorDatabase = Depends(get_mongo_db),
 ) -> NotificationService:
     """Фабрика зависимости для NotificationService."""
     return NotificationService(publisher=publisher, mongo_db=mongo_db)
