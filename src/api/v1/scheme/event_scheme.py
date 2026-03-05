@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -100,6 +98,3 @@ class EventsBatch(BaseModel):
     events: list[UserEvent] = Field(
         ..., description='Список пользовательских событий'
     )
-
-
-

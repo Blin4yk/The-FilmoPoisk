@@ -6,7 +6,7 @@ from typing import Final
 from aiokafka import AIOKafkaProducer
 from aiokafka.errors import KafkaConnectionError
 
-from core.config import settings
+from core.config import kafka_settings
 from db.interface.interfaces import AbstractEventPublisher
 
 
@@ -34,7 +34,7 @@ async def init_kafka_producer() -> None:
         return
 
     producer = AIOKafkaProducer(
-        bootstrap_servers=settings.kafka_bootstrap_servers,
+        bootstrap_servers=kafka_settings.kafka_bootstrap_servers,
         value_serializer=lambda v: v,
     )
 

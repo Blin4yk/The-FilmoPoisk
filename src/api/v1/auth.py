@@ -19,10 +19,9 @@ from api.v1.scheme.auth_scheme import (
 )
 from core.config import oauth_settings
 from db.postgres import get_db
-from services.auth_client import OAuthProviderFactory, register_oauth_user
-
 from models.user import User
 from services.auth import AuthService
+from services.auth_client import OAuthProviderFactory, register_oauth_user
 
 router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 
@@ -77,6 +76,7 @@ async def get_available_providers():
     return {
         "providers": OAuthProviderFactory.get_available_providers()
     }
+
 
 @router.get("/oauth/{provider}/authorize", summary="Получить ссылку на авторизацию OAuth провайдера")
 async def authorize(
@@ -155,12 +155,10 @@ async def callback(
 
         user_data = await oauth_provider.get_user_info(access_token)
 
-
         is_new_user, user = await register_oauth_user(
             user_data,
             password
         )
-
 
         return {
             "provider": provider,
@@ -516,6 +514,30 @@ async def verify_token(
             detail='Пользователь не найден',
         )
     return UserResponse.model_validate(user)
+
+
+@router.get('/users', response_model=dict[str, list[UserResponse]])
+async def list_users_info(
+        page: int = Query(1, ge=1, description='Номер страницы'),
+        size: int = Query(100, ge=1, le=1000, description='Размер страницы'),
+        db: AsyncSession = Depends(get_db),
+) -> dict[str, list[UserResponse]]:
+    """Получить список пользователей для сервисных интеграций нотификаций.
+
+    Args:
+        page: Номер страницы
+        size: Размер страницы
+        db: Сессия базы данных
+
+    Returns:
+        Список пользователей в поле items
+    """
+    from db.repositories.user_repository import UserRepository
+
+    user_repo = UserRepository(db)
+    offset = (page - 1) * size
+    users = await user_repo.get_all(offset=offset, limit=size)
+    return {'items': [UserResponse.model_validate(user) for user in users]}
 
 
 @router.get('/users/{user_id}', response_model=UserResponse)
