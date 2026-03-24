@@ -11,7 +11,7 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from api.v1 import auth, events, films, roles, ugc
+from api.v1 import auth, events, films, roles, ugc, profile
 from core.config import settings
 from core.sentry import setup_sentry
 from core.tracing import setup_tracing
@@ -100,6 +100,7 @@ app.include_router(roles.router)
 app.include_router(films.router)
 app.include_router(events.router)
 app.include_router(ugc.router)
+app.include_router(profile.router)
 
 # Для локальной разработки надо раскомментировать код ниже
 # if __name__ == '__main__':

@@ -57,6 +57,32 @@ class UGCService:
         if result.deleted_count == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Like not found')
 
+    async def list_likes(self, user_id: str) -> list[dict]:
+        cursor = self.db.likes.find({'user_id': user_id}).sort('updated_at', -1)
+        return [self._serialize(doc) async for doc in cursor]
+
+    async def upsert_rating(self, user_id: str, payload: dict) -> dict:
+        now = datetime.now(UTC)
+        await self.db.ratings.update_one(
+            {'user_id': user_id, 'film_id': payload['film_id']},
+            {
+                '$set': {'value': payload['value'], 'updated_at': now},
+                '$setOnInsert': {'created_at': now, 'user_id': user_id, 'film_id': payload['film_id']},
+            },
+            upsert=True,
+        )
+        doc = await self.db.ratings.find_one({'user_id': user_id, 'film_id': payload['film_id']})
+        return self._serialize(doc)
+
+    async def list_ratings(self, user_id: str) -> list[dict]:
+        cursor = self.db.ratings.find({'user_id': user_id}).sort('updated_at', -1)
+        return [self._serialize(doc) async for doc in cursor]
+
+    async def delete_rating(self, user_id: str, film_id: str) -> None:
+        result = await self.db.ratings.delete_one({'user_id': user_id, 'film_id': film_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Rating not found')
+
     async def create_review(self, user_id: str, payload: dict) -> dict:
         now = datetime.now(UTC)
         data = {**payload, 'user_id': user_id, 'created_at': now, 'updated_at': now}
@@ -90,3 +116,29 @@ class UGCService:
     async def list_reviews(self, film_id: str) -> list[dict]:
         cursor = self.db.reviews.find({'film_id': film_id}).sort('created_at', -1)
         return [self._serialize(doc) async for doc in cursor]
+
+    async def get_film_feedback(self, film_id: str) -> dict:
+        reviews = await self.list_reviews(film_id)
+        ratings_stats = await self.db.ratings.aggregate(
+            [
+                {'$match': {'film_id': film_id}},
+                {'$group': {'_id': None, 'count': {'$sum': 1}, 'avg': {'$avg': '$value'}}},
+            ]
+        ).to_list(length=1)
+        if ratings_stats:
+            ratings_count = int(ratings_stats[0].get('count', 0))
+            average_rating_raw = ratings_stats[0].get('avg')
+            average_rating = (
+                round(float(average_rating_raw), 2) if average_rating_raw is not None else None
+            )
+        else:
+            ratings_count = 0
+            average_rating = None
+
+        return {
+            'film_id': film_id,
+            'ratings_count': ratings_count,
+            'average_rating': average_rating,
+            'reviews_count': len(reviews),
+            'reviews': reviews,
+        }

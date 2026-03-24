@@ -35,9 +35,9 @@ class ReviewIn(BaseModel):
 
 
 class ReviewUpdate(BaseModel):
-    title: str | None = Field(..., min_length=3, max_length=100)
-    text: str | None = Field(..., min_length=3, max_length=5000)
-    rating: int = Field(..., ge=1, le=10)
+    title: str | None = Field(None, min_length=3, max_length=100)
+    text: str | None = Field(None, min_length=3, max_length=5000)
+    rating: int | None = Field(None, ge=1, le=10)
 
 
 class ReviewOut(ReviewIn):
@@ -45,6 +45,26 @@ class ReviewOut(ReviewIn):
     user_id: str
     created_at: datetime
     updated_at: datetime
+
+
+class RatingIn(BaseModel):
+    film_id: str = Field(...)
+    value: int = Field(..., ge=1, le=10, description='Оценка фильма от 1 до 10')
+
+
+class RatingOut(RatingIn):
+    id: str
+    user_id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class FilmFeedbackOut(BaseModel):
+    film_id: str
+    ratings_count: int
+    average_rating: float | None
+    reviews_count: int
+    reviews: list[ReviewOut]
 
 
 class DeleteResponse(BaseModel):

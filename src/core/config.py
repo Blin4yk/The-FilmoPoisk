@@ -11,7 +11,9 @@ logging_config.dictConfig(LOGGING)
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    model_config = SettingsConfigDict(
+        env_file='.env', env_file_encoding='utf-8', extra='ignore'
+    )
 
     project_name: str = Field('movies', alias='PROJECT_NAME')
 
@@ -78,7 +80,9 @@ class Settings(BaseSettings):
 
 class OAuthSettings(BaseSettings):
     """Настройки для авторизации"""
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    model_config = SettingsConfigDict(
+        env_file='.env', env_file_encoding='utf-8', extra='ignore'
+    )
 
     oauth_yandex_client_id: str = Field('secret_client_id', alias='OAUTH_YANDEX_CLIENT_ID')
     oauth_yandex_client_secret: str = Field('client_secret_key', alias='OAUTH_YANDEX_CLIENT_SECRET')
@@ -105,7 +109,9 @@ class OAuthSettings(BaseSettings):
 class MongoSentrySettings(BaseSettings):
     """Настройки для MongoDB и Sentry"""
 
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    model_config = SettingsConfigDict(
+        env_file='.env', env_file_encoding='utf-8', extra='ignore'
+    )
     mongo_host: str = Field('mongo', alias='MONGO_HOST')
     mongo_port: int = Field(27017, alias='MONGO_PORT')
     mongo_db: str = Field('ugc', alias='MONGO_DB')

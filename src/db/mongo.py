@@ -13,6 +13,8 @@ async def init_mongo() -> AsyncIOMotorDatabase:
 
     await mongo_db.bookmarks.create_index([('user_id', 1), ('film_id', 1)], unique=True)
     await mongo_db.likes.create_index([('user_id', 1), ('film_id', 1)], unique=True)
+    await mongo_db.ratings.create_index([('user_id', 1), ('film_id', 1)], unique=True)
+    await mongo_db.ratings.create_index([('film_id', 1), ('value', -1)])
     await mongo_db.reviews.create_index([('film_id', 1), ('created_at', -1)])
     await mongo_db.reviews.create_index([('user_id', 1), ('film_id', 1)], unique=True)
     return mongo_db

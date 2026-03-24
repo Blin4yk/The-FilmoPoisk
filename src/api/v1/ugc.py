@@ -6,8 +6,11 @@ from api.v1.scheme.ugc_scheme import (
     BookmarkIn,
     BookmarkOut,
     DeleteResponse,
+    FilmFeedbackOut,
     LikeIn,
     LikeOut,
+    RatingIn,
+    RatingOut,
     ReviewIn,
     ReviewOut,
     ReviewUpdate,
@@ -69,6 +72,33 @@ async def delete_like(
     return DeleteResponse()
 
 
+@router.put('/ratings', response_model=RatingOut)
+async def upsert_rating(
+    payload: RatingIn,
+    current_user: User = Depends(get_current_user),
+    service: UGCService = Depends(get_ugc_service),
+) -> RatingOut:
+    return RatingOut(**await service.upsert_rating(str(current_user.id), payload.model_dump()))
+
+
+@router.get('/ratings', response_model=list[RatingOut])
+async def list_ratings(
+    current_user: User = Depends(get_current_user),
+    service: UGCService = Depends(get_ugc_service),
+) -> list[RatingOut]:
+    return [RatingOut(**item) for item in await service.list_ratings(str(current_user.id))]
+
+
+@router.delete('/ratings/{film_id}', response_model=DeleteResponse)
+async def delete_rating(
+    film_id: str,
+    current_user: User = Depends(get_current_user),
+    service: UGCService = Depends(get_ugc_service),
+) -> DeleteResponse:
+    await service.delete_rating(str(current_user.id), film_id)
+    return DeleteResponse()
+
+
 @router.post('/reviews', response_model=ReviewOut, status_code=status.HTTP_201_CREATED)
 async def create_review(
     payload: ReviewIn,
@@ -104,3 +134,11 @@ async def list_reviews(
     service: UGCService = Depends(get_ugc_service),
 ) -> list[ReviewOut]:
     return [ReviewOut(**item) for item in await service.list_reviews(film_id)]
+
+
+@router.get('/films/{film_id}/feedback', response_model=FilmFeedbackOut)
+async def get_film_feedback(
+    film_id: str,
+    service: UGCService = Depends(get_ugc_service),
+) -> FilmFeedbackOut:
+    return FilmFeedbackOut(**await service.get_film_feedback(film_id))
