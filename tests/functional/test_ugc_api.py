@@ -13,7 +13,7 @@ fake_motor_asyncio.AsyncIOMotorClient = object
 sys.modules['motor'] = fake_motor
 sys.modules['motor.motor_asyncio'] = fake_motor_asyncio
 
-from api.v1.dependencies.auth import get_current_user
+from api.v1.dependencies.auth import get_current_user, require_active_profile
 from api.v1.ugc import get_ugc_service, router
 
 
@@ -66,6 +66,7 @@ def build_client(service: FakeService) -> TestClient:
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id='u1')
+    app.dependency_overrides[require_active_profile] = lambda: SimpleNamespace(id='u1')
     app.dependency_overrides[get_ugc_service] = lambda: service
     return TestClient(app)
 

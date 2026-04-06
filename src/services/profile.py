@@ -15,8 +15,14 @@ class ProfileService:
     async def get_or_create_self_profile(
         self, user_id: UUID, full_name: str | None, phone: str | None
     ) -> UserProfile:
-        profile = await self.profile_repo.get_by_user_id(user_id)
+        profile = await self.profile_repo.get_by_user_id(user_id, include_deleted=True)
         if profile:
+            if profile.deleted_at is not None:
+                if full_name is not None:
+                    profile.full_name = full_name
+                if phone is not None:
+                    profile.phone = phone
+                return await self.profile_repo.restore(profile)
             return profile
         if full_name is None or phone is None:
             raise ValueError('full_name and phone are required to create profile')
@@ -37,7 +43,7 @@ class ProfileService:
         profile = await self.profile_repo.get_by_user_id(user_id)
         if not profile:
             raise LookupError('profile_not_found')
-        await self.profile_repo.delete(profile)
+        await self.profile_repo.soft_delete(profile)
 
     async def list_profiles(
         self, page: int, size: int, phone: str | None = None, full_name: str | None = None

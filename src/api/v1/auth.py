@@ -223,9 +223,9 @@ async def login(
         key='access_token',
         value=access_token,
         httponly=True,
-        secure=False,  # В продакшене должно быть True
+        secure=True,
         samesite='lax',
-        max_age=1800,  # 30 минут (в секундах)
+        max_age=1800,
     )
 
     response.set_cookie(
@@ -234,10 +234,9 @@ async def login(
         httponly=True,
         secure=False,
         samesite='lax',
-        max_age=604800,  # 7 дней (в секундах)
+        max_age=604800,
     )
 
-    # Также возвращаем токены в теле ответа (опционально)
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,

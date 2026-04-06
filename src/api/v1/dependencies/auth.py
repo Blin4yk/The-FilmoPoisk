@@ -5,6 +5,7 @@ from uuid import UUID
 from core.jwt import jwt_service
 from db.interface.interfaces import AbstractCache
 from db.postgres import get_db
+from db.repositories.user_profile_repository import UserProfileRepository
 from db.redis import get_cache
 from fastapi import Depends, HTTPException, Request, status
 from models.user import User
@@ -190,6 +191,20 @@ def check_role_permission(role_name: str):
 def require_admin_dependency():
     """Создать зависимость для требования роли admin."""
     return Depends(check_role_permission('admin'))
+
+
+async def require_active_profile(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    profile_repo = UserProfileRepository(db)
+    profile = await profile_repo.get_by_user_id(current_user.id)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Для этого действия необходимо создать профиль',
+        )
+    return current_user
 
 
 def get_auth_service(

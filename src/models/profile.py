@@ -26,6 +26,7 @@ class UserProfile(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     def __repr__(self) -> str:
         return f'<UserProfile {self.user_id} {self.phone}>'
