@@ -2,8 +2,11 @@
 import math
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from api.v1.dependencies.auth import check_role_permission, get_current_user
-from api.v1.dependencies.dependency import PaginationParams
+from api.v1.dependencies.dependency import PageParams
 from api.v1.scheme.role_scheme import (
     AssignRoleResponse,
     CheckPermissionRequest,
@@ -16,32 +19,21 @@ from api.v1.scheme.role_scheme import (
 from db.interface.interfaces import AbstractCache
 from db.postgres import get_db
 from db.redis import get_cache
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-
 from db.repositories.role_repository import RoleRepository
 from db.repositories.user_repository import UserRepository
 from models.user import User
 from services.role import RoleService
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix='/api/v1/roles', tags=['roles'])
 
 
-class RoleListParams(PaginationParams):
+class RoleListParams(PageParams):
     """Параметры пагинации для списка ролей."""
-
-    def __init__(
-        self,
-        page: int = Query(1, ge=1, description='Номер страницы'),
-        size: int = Query(50, ge=1, le=100, description='Размер страницы'),
-    ):
-        """Инициализация параметров пагинации."""
-        super().__init__(sort='', page=page, size=size)
 
 
 def get_role_service(
-    db: AsyncSession = Depends(get_db),
-    cache: AbstractCache = Depends(get_cache),
+        db: AsyncSession = Depends(get_db),
+        cache: AbstractCache = Depends(get_cache),
 ) -> RoleService:
     """
     Получить экземпляр сервиса ролей.
@@ -58,8 +50,9 @@ def get_role_service(
 
 @router.post('/', response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
 async def create_role(
-    role_data: RoleCreate,
-    role_service: RoleService = Depends(get_role_service),
+        role_data: RoleCreate,
+        current_user: User = Depends(check_role_permission('admin')),
+        role_service: RoleService = Depends(get_role_service),
 ) -> RoleResponse:
     """
     Создать новую роль (только для admin).
@@ -87,8 +80,9 @@ async def create_role(
 
 @router.get('/', response_model=RoleListResponse)
 async def get_roles(
-    pagination: RoleListParams = Depends(),
-    role_service: RoleService = Depends(get_role_service),
+        pagination: RoleListParams = Depends(),
+        current_user: User = Depends(check_role_permission('admin')),
+        role_service: RoleService = Depends(get_role_service),
 ) -> RoleListResponse:
     """
     Получить все роли с пагинацией (только для admin).
@@ -105,7 +99,6 @@ async def get_roles(
         page=pagination.page, size=pagination.size
     )
 
-
     pages = math.ceil(total / pagination.size) if total > 0 else 0
 
     return RoleListResponse(
@@ -119,8 +112,9 @@ async def get_roles(
 
 @router.get('/{role_id}', response_model=RoleResponse)
 async def get_role(
-    role_id: UUID,
-    role_service: RoleService = Depends(get_role_service),
+        role_id: UUID,
+        current_user: User = Depends(check_role_permission('admin')),
+        role_service: RoleService = Depends(get_role_service),
 ) -> RoleResponse:
     """
     Получить роль по ID (только для admin).
@@ -147,9 +141,10 @@ async def get_role(
 
 @router.patch('/{role_id}', response_model=RoleResponse)
 async def update_role(
-    role_id: UUID,
-    role_data: RoleUpdate,
-    role_service: RoleService = Depends(get_role_service),
+        role_id: UUID,
+        role_data: RoleUpdate,
+        current_user: User = Depends(check_role_permission('admin')),
+        role_service: RoleService = Depends(get_role_service),
 ) -> RoleResponse:
     """
     Обновить роль (только для admin).
@@ -189,8 +184,9 @@ async def update_role(
 
 @router.delete('/{role_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_role(
-    role_id: UUID,
-    role_service: RoleService = Depends(get_role_service),
+        role_id: UUID,
+        current_user: User = Depends(check_role_permission('admin')),
+        role_service: RoleService = Depends(get_role_service),
 ) -> None:
     """
     Удалить роль (только для admin).
@@ -219,10 +215,10 @@ async def delete_role(
 
 @router.post('/{role_id}/assign/{user_id}', response_model=AssignRoleResponse)
 async def assign_role(
-    role_id: UUID,
-    user_id: UUID,
-    current_user: User = Depends(check_role_permission('admin')),
-    role_service: RoleService = Depends(get_role_service),
+        role_id: UUID,
+        user_id: UUID,
+        current_user: User = Depends(check_role_permission('admin')),
+        role_service: RoleService = Depends(get_role_service),
 ) -> AssignRoleResponse:
     """
     Назначить роль пользователю (только для admin).
@@ -260,9 +256,10 @@ async def assign_role(
 
 @router.delete('/{role_id}/revoke/{user_id}', response_model=dict)
 async def revoke_role(
-    role_id: UUID,
-    user_id: UUID,
-    role_service: RoleService = Depends(get_role_service),
+        role_id: UUID,
+        user_id: UUID,
+        current_user: User = Depends(check_role_permission('admin')),
+        role_service: RoleService = Depends(get_role_service),
 ) -> dict:
     """
     Отозвать роль у пользователя (только для admin).
@@ -296,10 +293,10 @@ async def revoke_role(
 
 @router.post('/check-permission', response_model=CheckPermissionResponse)
 async def check_permission(
-    request: CheckPermissionRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-    cache: AbstractCache = Depends(get_cache),
+        request: CheckPermissionRequest,
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+        cache: AbstractCache = Depends(get_cache),
 ) -> CheckPermissionResponse:
     """
     Проверить, имеет ли пользователь требуемое разрешение.
@@ -322,9 +319,9 @@ async def check_permission(
 
     # Если проверяем другого пользователя, требуется admin
     if (
-        request.user_id
-        and request.user_id != current_user.id
-        and not current_user.is_superuser
+            request.user_id
+            and request.user_id != current_user.id
+            and not current_user.is_superuser
     ):
         # Проверяем, является ли текущий пользователь admin
         role_repo = RoleRepository(db)

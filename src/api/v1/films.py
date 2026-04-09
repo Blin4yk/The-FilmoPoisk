@@ -21,12 +21,9 @@ class FilmListParams(PaginationParams):
 
     def __init__(
         self,
-        sort: str = Query('-imdb_rating', description='Sort by field (- for DESC)'),
-        page: int = Query(1, ge=1, description='Page number'),
-        size: int = Query(50, ge=1, le=100, description='Page size'),
         genre: Optional[str] = Query(None, description='Filter by genre ID'),
     ):
-        super().__init__(sort, page, size)
+        super().__init__()
         self.genre = genre
 
 
@@ -36,11 +33,8 @@ class FilmSearchParams(PaginationParams):
     def __init__(
         self,
         query: str = Query(..., min_length=3, description='Search query'),
-        sort: str = Query('-imdb_rating', description='Sort by field (- for DESC)'),
-        page: int = Query(1, ge=1, description='Page number'),
-        size: int = Query(50, ge=1, le=100, description='Page size'),
     ):
-        super().__init__(sort, page, size)
+        super().__init__()
         self.query = query
 
 

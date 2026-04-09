@@ -5,8 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.v1.dependencies.auth import get_auth_service, get_current_user
-from api.v1.dependencies.dependency import PaginationParams
+from api.v1.dependencies.auth import get_auth_service, get_current_user, check_role_permission
+from api.v1.dependencies.dependency import PageParams
 from api.v1.scheme.auth_scheme import (
     LoginHistoryListResponse,
     LoginHistoryResponse,
@@ -21,24 +21,15 @@ from core.config import oauth_settings, settings
 from core.jwt import jwt_service
 from db.postgres import get_db
 from db.repositories.user_repository import UserRepository
-from services.auth_client import OAuthProviderFactory, register_oauth_user
-
 from models.user import User
 from services.auth import AuthService
+from services.auth_client import OAuthProviderFactory, register_oauth_user
 
 router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 
 
-class LoginHistoryParams(PaginationParams):
+class LoginHistoryParams(PageParams):
     """Параметры пагинации для истории входов."""
-
-    def __init__(
-            self,
-            page: int = Query(1, ge=1, description='Номер страницы'),
-            size: int = Query(10, ge=1, le=100, description='Размер страницы'),
-    ):
-        """Инициализация параметров пагинации."""
-        super().__init__(sort='', page=page, size=size)
 
 
 @router.post(
@@ -64,8 +55,8 @@ async def register(
     try:
         user = await auth_service.register_user(user_data)
         return UserResponse.model_validate(user)
-    except Exception as e:
-        raise HTTPException(e)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
 
 @router.get("/oauth/providers", summary="Получить список доступных OAuth провайдеров")
@@ -79,6 +70,7 @@ async def get_available_providers():
     return {
         "providers": OAuthProviderFactory.get_available_providers()
     }
+
 
 @router.get("/oauth/{provider}/authorize", summary="Получить ссылку на авторизацию OAuth провайдера")
 async def authorize(
@@ -160,12 +152,10 @@ async def callback(
 
         user_data = await oauth_provider.get_user_info(access_token)
 
-
         is_new_user, user = await register_oauth_user(
             user_data,
             password
         )
-
 
         return {
             "provider": provider,
@@ -488,7 +478,6 @@ async def verify_token(
 
     token = authorization.split(' ')[1]
 
-
     payload = jwt_service.verify_token(token, token_type='access')
     if not payload:
         raise HTTPException(
@@ -505,7 +494,6 @@ async def verify_token(
 
     user_id = UUID(user_id_str)
 
-
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id(user_id)
     if not user:
@@ -519,6 +507,7 @@ async def verify_token(
 @router.get('/users/{user_id}', response_model=UserResponse)
 async def get_user_info(
         user_id: UUID,
+        current_user: User = Depends(check_role_permission('admin')),
         db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
     """
