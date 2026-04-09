@@ -7,6 +7,7 @@ from api.v1.scheme.film_scheme import FilmDetail, FilmShort, Genre, Person
 from db.elastic import get_storage
 from db.interface.interfaces import AbstractCache, AbstractDataStorage
 from db.redis import get_cache
+from models.user import User
 
 FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5  # 5 минут
 FILMS_LIST_CACHE_EXPIRE_IN_SECONDS = 60  # 1 минута
@@ -26,7 +27,7 @@ class FilmService:
         self.index = 'movies'  # Индекс фильмов в Elasticsearch
 
     async def get_by_id(
-            self, film_id: str, user: 'User | None' = None, permission_service=None
+            self, film_id: str, user: User | None = None, permission_service=None
     ) -> FilmDetail | None:
         """
         Получить фильм по ID с кэшированием и проверкой доступа.
@@ -103,7 +104,7 @@ class FilmService:
             genre: str | None = None,
             page: int = 1,
             size: int = 50,
-            user: 'User | None' = None,
+            user: User | None = None,
             permission_service=None,
     ) -> list[FilmShort]:
         """Получение списка фильмов с сортировкой по рейтингу и фильтром жанров"""
@@ -162,7 +163,7 @@ class FilmService:
             sort: str = '-imdb_rating',
             page: int = 1,
             size: int = 50,
-            user: 'User | None' = None,
+            user: User | None = None,
             permission_service=None,
     ) -> list[FilmShort]:
         """Поиск фильмов по любому слову в названии, описании и других полях"""
