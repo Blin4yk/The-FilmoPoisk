@@ -11,7 +11,7 @@ class JWTService:
 
     def __init__(self):
         """Инициализация JWT сервиса с настройками"""
-        self.secret_key = settings.jwt_secret_key
+        self.secret_key = settings.jwt_secret_key.get_secret_value()
         self.algorithm = settings.jwt_algorithm
         self.access_token_expire_minutes = settings.access_token_expire_minutes
         self.refresh_token_expire_days = settings.refresh_token_expire_days
@@ -63,7 +63,7 @@ class JWTService:
             'sub': user_id,
             'jti': jti,
             'exp': expire,
-            'iat': datetime.utcnow(),
+            'iat': datetime.now(timezone.utc),
             'type': 'refresh',
         }
         token = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
