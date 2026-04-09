@@ -1,15 +1,12 @@
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING
+
+from fastapi import Depends
 
 from api.v1.scheme.film_scheme import FilmDetail, FilmShort, Genre, Person
 from db.elastic import get_storage
 from db.interface.interfaces import AbstractCache, AbstractDataStorage
 from db.redis import get_cache
-from fastapi import Depends
-
-if TYPE_CHECKING:
-    from models.user import User
 
 FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5  # 5 минут
 FILMS_LIST_CACHE_EXPIRE_IN_SECONDS = 60  # 1 минута
@@ -29,7 +26,7 @@ class FilmService:
         self.index = 'movies'  # Индекс фильмов в Elasticsearch
 
     async def get_by_id(
-        self, film_id: str, user: 'User | None' = None, permission_service=None
+            self, film_id: str, user: 'User | None' = None, permission_service=None
     ) -> FilmDetail | None:
         """
         Получить фильм по ID с кэшированием и проверкой доступа.
@@ -45,7 +42,7 @@ class FilmService:
         cache_key = f'film:{film_id}'
         cached_film = await self.cache.get(cache_key)
         if cached_film:
-            film = FilmDetail.parse_raw(cached_film)
+            film = FilmDetail.model_validate_json(cached_film)
         else:
             film_data = await self.storage.get_by_id(index=self.index, id=film_id)
             if not film_data:
@@ -54,7 +51,7 @@ class FilmService:
             film = self._convert_to_film_detail(film_data)
 
             await self.cache.set(
-                cache_key, film.json(), expire=FILM_CACHE_EXPIRE_IN_SECONDS
+                cache_key, film.model_dump_json(), expire=FILM_CACHE_EXPIRE_IN_SECONDS
             )
 
         # Проверяем доступ, если предоставлен сервис проверки разрешений
@@ -65,9 +62,9 @@ class FilmService:
             if film_data:
                 # Пробуем разные возможные поля даты
                 creation_date_str = (
-                    film_data.get('creation_date')
-                    or film_data.get('release_date')
-                    or film_data.get('premiere')
+                        film_data.get('creation_date')
+                        or film_data.get('release_date')
+                        or film_data.get('premiere')
                 )
                 if creation_date_str:
                     try:
@@ -101,13 +98,13 @@ class FilmService:
         return film
 
     async def get_films(
-        self,
-        sort: str = '-imdb_rating',
-        genre: str | None = None,
-        page: int = 1,
-        size: int = 50,
-        user: 'User | None' = None,
-        permission_service=None,
+            self,
+            sort: str = '-imdb_rating',
+            genre: str | None = None,
+            page: int = 1,
+            size: int = 50,
+            user: 'User | None' = None,
+            permission_service=None,
     ) -> list[FilmShort]:
         """Получение списка фильмов с сортировкой по рейтингу и фильтром жанров"""
         cache_key = f'films:list:{sort}:{genre}:{page}:{size}'
@@ -152,7 +149,7 @@ class FilmService:
 
         # Сохраняем в кэш
         if films:
-            films_json = json.dumps([film.dict() for film in films])
+            films_json = json.dumps([film.model_dump() for film in films])
             await self.cache.set(
                 cache_key, films_json, expire=FILMS_LIST_CACHE_EXPIRE_IN_SECONDS
             )
@@ -160,13 +157,13 @@ class FilmService:
         return films
 
     async def search_films(
-        self,
-        query: str,
-        sort: str = '-imdb_rating',
-        page: int = 1,
-        size: int = 50,
-        user: 'User | None' = None,
-        permission_service=None,
+            self,
+            query: str,
+            sort: str = '-imdb_rating',
+            page: int = 1,
+            size: int = 50,
+            user: 'User | None' = None,
+            permission_service=None,
     ) -> list[FilmShort]:
         """Поиск фильмов по любому слову в названии, описании и других полях"""
         # Генерируем ключ для кэша
@@ -230,9 +227,9 @@ class FilmService:
             if permission_service:
                 creation_date = None
                 creation_date_str = (
-                    film_data.get('creation_date')
-                    or film_data.get('release_date')
-                    or film_data.get('premiere')
+                        film_data.get('creation_date')
+                        or film_data.get('release_date')
+                        or film_data.get('premiere')
                 )
                 if creation_date_str:
                     try:
@@ -265,7 +262,7 @@ class FilmService:
 
         # Сохраняем в кэш (note: cache key doesn't include user, so we cache accessible films for current user)
         if accessible_films:
-            films_json = json.dumps([film.dict() for film in accessible_films])
+            films_json = json.dumps([film.model_dump() for film in accessible_films])
             await self.cache.set(
                 cache_key, films_json, expire=FILMS_LIST_CACHE_EXPIRE_IN_SECONDS
             )
@@ -325,7 +322,7 @@ class FilmService:
 
 # Зависимости для внедрения
 async def get_film_service(
-    cache: AbstractCache = Depends(get_cache),
-    storage: AbstractDataStorage = Depends(get_storage),
+        cache: AbstractCache = Depends(get_cache),
+        storage: AbstractDataStorage = Depends(get_storage),
 ) -> FilmService:
     return FilmService(cache, storage)
