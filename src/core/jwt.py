@@ -56,7 +56,7 @@ class JWTService:
             Кортеж из (токен, jti)
         """
         expire = datetime.now(timezone.utc) + timedelta(
-            minutes=self.refresh_token_expire_days
+            days=self.refresh_token_expire_days
         )
         jti = str(uuid.uuid4())
         payload = {
