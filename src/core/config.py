@@ -1,7 +1,7 @@
 import os
 from logging import config as logging_config
 
-from pydantic import Field
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from core.logger import LOGGING
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     postgres_port: int = Field(5432, alias='POSTGRES_PORT')
     postgres_db: str = Field('db', alias='POSTGRES_DB')
     postgres_user: str = Field('user', alias='POSTGRES_USER')
-    postgres_password: str = Field('password', alias='POSTGRES_PASSWORD')
+    postgres_password: str = Field(..., alias='POSTGRES_PASSWORD')
     postgres_echo: bool = Field(False, alias='POSTGRES_ECHO')
     @property
     def postgres_url(self) -> str:
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
         return f'postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}'
 
     jwt_secret_key: str = Field(
-        'jwt_secret_key', alias='JWT_SECRET_KEY'
+        ..., alias='JWT_SECRET_KEY'
     )
     jwt_algorithm: str = Field('HS256', alias='JWT_ALGORITHM')
     access_token_expire_minutes: int = Field(15, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
@@ -85,7 +85,7 @@ class OAuthSettings(BaseSettings):
     )
 
     oauth_yandex_client_id: str = Field('secret_client_id', alias='OAUTH_YANDEX_CLIENT_ID')
-    oauth_yandex_client_secret: str = Field('client_secret_key', alias='OAUTH_YANDEX_CLIENT_SECRET')
+    oauth_yandex_client_secret: SecretStr = Field('client_secret_key', alias='OAUTH_YANDEX_CLIENT_SECRET')
     oauth_redirect_uri: str = Field(
         'https://oauth.yandex.ru/verification_code', alias='OAUTH_REDIRECT_URI'
     )
@@ -93,13 +93,22 @@ class OAuthSettings(BaseSettings):
     AUTHORIZATION_BASE_URL: str = Field('https://oauth.yandex.ru/authorize', alias="AUTHORIZATION_BASE_URL")
     TOKEN_URL: str = Field('https://oauth.yandex.ru/token', alias="TOKEN_URL")
 
-    oauth_credentials: dict = {
-        'yandex': {
-            'id': Field('secret_client_id', alias='OAUTH_YANDEX_CLIENT_ID'),
-            'secret': Field('client_secret_key', alias='OAUTH_YANDEX_CLIENT_SECRET'),
-            'redirect_uri': Field('https://oauth.yandex.ru/verification_code', alias='OAUTH_REDIRECT_URI')
+    @model_validator(mode='after')
+    def validate_required(self) -> 'OAuthSettings':
+        if not self.oauth_yandex_client_id.strip():
+            raise ValueError('OAUTH_YANDEX_CLIENT_ID не должен быть пустым')
+        return self
+
+    @property
+    def oauth_credentials(self) -> dict[str, dict[str, str]]:
+        """Вернуть OAuth-креды в формате словаря для совместимости."""
+        return {
+            'yandex': {
+                'id': self.oauth_yandex_client_id,
+                'secret': self.oauth_yandex_client_secret.get_secret_value(),
+                'redirect_uri': self.oauth_redirect_uri,
+            }
         }
-    }
 
     @property
     def base_dir(self) -> str:
