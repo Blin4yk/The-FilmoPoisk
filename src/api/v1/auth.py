@@ -1,5 +1,5 @@
 """API для аунтентификации и авторизации"""
-
+import math
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
@@ -18,7 +18,9 @@ from api.v1.scheme.auth_scheme import (
     UserUpdate,
 )
 from core.config import oauth_settings
+from core.jwt import jwt_service
 from db.postgres import get_db
+from db.repositories.user_repository import UserRepository
 from services.auth_client import OAuthProviderFactory, register_oauth_user
 
 from models.user import User
@@ -443,8 +445,6 @@ async def get_login_history(
         size=pagination.size,
     )
 
-    import math
-
     pages = math.ceil(total / pagination.size) if total > 0 else 0
 
     return LoginHistoryListResponse(
@@ -485,8 +485,6 @@ async def verify_token(
 
     token = authorization.split(' ')[1]
 
-    # Проверяем токен через JWT сервис
-    from core.jwt import jwt_service
 
     payload = jwt_service.verify_token(token, token_type='access')
     if not payload:
@@ -504,8 +502,6 @@ async def verify_token(
 
     user_id = UUID(user_id_str)
 
-    # Получаем пользователя из базы данных
-    from db.repositories.user_repository import UserRepository
 
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id(user_id)
@@ -536,7 +532,6 @@ async def get_user_info(
     Raises:
         HTTPException: Если пользователь не найден
     """
-    from db.repositories.user_repository import UserRepository
 
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id(user_id)

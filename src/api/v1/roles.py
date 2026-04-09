@@ -1,4 +1,5 @@
 """API эндпоинты для управления ролями."""
+import math
 from uuid import UUID
 
 from api.v1.dependencies.auth import check_role_permission, get_current_user
@@ -16,6 +17,9 @@ from db.interface.interfaces import AbstractCache
 from db.postgres import get_db
 from db.redis import get_cache
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from db.repositories.role_repository import RoleRepository
+from db.repositories.user_repository import UserRepository
 from models.user import User
 from services.role import RoleService
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -101,7 +105,6 @@ async def get_roles(
         page=pagination.page, size=pagination.size
     )
 
-    import math
 
     pages = math.ceil(total / pagination.size) if total > 0 else 0
 
@@ -313,9 +316,6 @@ async def check_permission(
     Raises:
         HTTPException: Если запрос невалиден или пользователь не найден
     """
-
-    from db.repositories.role_repository import RoleRepository
-    from db.repositories.user_repository import UserRepository
 
     # Определяем, какого пользователя проверять
     user_id = request.user_id if request.user_id else current_user.id
