@@ -13,7 +13,7 @@ class Base(DeclarativeBase):
 # Создаем асинхронный движок
 engine = create_async_engine(
     settings.postgres_url,
-    echo=True,
+    echo=settings.postgres_echo,
     future=True,
     pool_pre_ping=True,
 )

@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Protocol
 
 from db.interface.interfaces import AbstractDataStorage, FilmStorage, SearchStorage
@@ -80,8 +81,8 @@ class ElasticDataStorage(AbstractDataStorage):
         try:
             response = await self._client.search(index=index, body=search_body)
             return [hit['_source'] for hit in response['hits']['hits']]
-        except Exception:
-            return []
+        except Exception as e:
+            logging.error(e)
 
 
 class AbstractSearchClient(Protocol):

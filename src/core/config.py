@@ -47,14 +47,14 @@ class Settings(BaseSettings):
     postgres_db: str = Field('db', alias='POSTGRES_DB')
     postgres_user: str = Field('user', alias='POSTGRES_USER')
     postgres_password: str = Field('password', alias='POSTGRES_PASSWORD')
-
+    postgres_echo: bool = Field(False, alias='POSTGRES_ECHO')
     @property
     def postgres_url(self) -> str:
         """Вернуть URL базы данных PostgreSQL."""
         return f'postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}'
 
     jwt_secret_key: str = Field(
-        'zK9kFhzwajNklEzmnoYVWma4EmyXXWtOkTyJGZ6BdgV', alias='JWT_SECRET_KEY'
+        'jwt_secret_key', alias='JWT_SECRET_KEY'
     )
     jwt_algorithm: str = Field('HS256', alias='JWT_ALGORITHM')
     access_token_expire_minutes: int = Field(15, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
