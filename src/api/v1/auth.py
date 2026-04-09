@@ -17,7 +17,7 @@ from api.v1.scheme.auth_scheme import (
     UserResponse,
     UserUpdate,
 )
-from core.config import oauth_settings
+from core.config import oauth_settings, settings
 from core.jwt import jwt_service
 from db.postgres import get_db
 from db.repositories.user_repository import UserRepository
@@ -153,6 +153,9 @@ async def callback(
         response.set_cookie(
             key=f"{provider}_access_token",
             value=access_token,
+            httponly=True,
+            secure=settings.cookie_secure,
+            samesite='lax',
         )
 
         user_data = await oauth_provider.get_user_info(access_token)
@@ -225,7 +228,7 @@ async def login(
         key='access_token',
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=settings.cookie_secure,
         samesite='lax',
         max_age=1800,
     )
@@ -234,7 +237,7 @@ async def login(
         key='refresh_token',
         value=refresh_token,
         httponly=True,
-        secure=False,
+        secure=settings.cookie_secure,
         samesite='lax',
         max_age=604800,
     )

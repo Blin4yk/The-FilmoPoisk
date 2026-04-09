@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = Field(7, alias='REFRESH_TOKEN_EXPIRE_DAYS')
 
     # Jaeger
+    cookie_secure: bool = Field(True, alias='COOKIE_SECURE')
+
     jaeger_agent_host: str = Field('jaeger', alias='JAEGER_AGENT_HOST')
     jaeger_agent_port: int = Field(6831, alias='JAEGER_AGENT_PORT')
     jaeger_service_name: str = Field('filmp Poisk', alias='JAEGER_SERVICE_NAME')
