@@ -162,6 +162,42 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 - `GET /api/v1/films/{film_id}` - Детали фильма
 - `GET /api/v1/films/search/` - Поиск фильмов
 
+#### Нотификации (`/api/v1/notifications`)
+- `POST /api/v1/notifications/broadcast` - Постановка в очередь одинакового сообщения всем пользователям
+- `POST /api/v1/notifications/personalized` - Постановка в очередь персонализированных сообщений
+- `POST /api/v1/notifications/events/fixed` - Приём фиксированных событий (регистрация, новый фильм и т.д.)
+- `POST /api/v1/notifications/events/free-form` - Приём событий в свободном формате
+- `GET /api/v1/notifications/me` - Просмотр последних уведомлений текущего пользователя
+
+> Важно: API нотификаций только ставит задачи в очередь. Для фактической отправки и сохранения уведомлений в MongoDB должен быть запущен воркер нотификаций, который читает Kafka-топик `notifications`.
+>
+> Воркер получает данные пользователя по `user_id` из auth-сервиса, отправляет уведомление в выбранный канал (email/sms/push) и сохраняет доставленное уведомление в коллекцию `notifications` MongoDB.
+
+Запуск воркера нотификаций локально:
+```bash
+cd src
+python -m workers.run_notification_worker
+```
+
+В Docker Compose добавлен отдельный сервис `notification-worker` (см. `run/docker-compose-prod.yaml`), его запуск обязателен для фактической доставки и сохранения уведомлений.
+
+
+Для реальной отправки email через `smtplib` укажите SMTP-параметры:
+```env
+ENABLE_SMTP_NOTIFICATIONS=true
+SMTP_HOST=mailhog
+SMTP_PORT=1025
+SMTP_USE_TLS=false
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_FROM_EMAIL=noreply@filmopoisk.local
+```
+
+Если `ENABLE_SMTP_NOTIFICATIONS=false`, email-канал работает в лог-режиме (без реальной отправки письма).
+
+Для широковещательных уведомлений воркер обрабатывает пользователей батчами (постранично), без загрузки всех пользователей в память сразу. SMTP-сессия для email переиспользуется на время обработки сообщения, чтобы не выполнять логин перед каждым письмом.
+
+
 ## Миграции базы данных
 
 Проект использует Alembic для управления миграциями.
